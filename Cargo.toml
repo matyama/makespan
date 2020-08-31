@@ -1,0 +1,11 @@
+[package]
+name = "makespan"
+version = "0.1.0"
+authors = ["Martin Matyasek <martin.matyasek@gmail.com>"]
+edition = "2018"
+
+[lib]
+name = "makespan"
+path = "src/lib.rs"
+
+[dependencies]
