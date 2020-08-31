@@ -1,4 +1,4 @@
-name: Makespan
+name: makespan
 
 on:
   push:
