@@ -1,11 +1,16 @@
+use std::cmp::Ordering;
 use std::collections::hash_map::{DefaultHasher, Entry};
 use std::collections::{BinaryHeap, HashMap, HashSet};
+use std::convert::identity;
 use std::hash::{Hash, Hasher};
+use std::iter::Sum;
 use std::time::{Duration, SystemTime};
 
 use num::Float;
 use ordered_float::OrderedFloat;
-use std::cmp::Ordering;
+
+// TODO: split into sub-modules
+// TODO: ideally impl something like Add for OrderedFloat<T>
 
 #[inline]
 fn minimize<T, F>(xs: &[OrderedFloat<T>], f: F) -> Option<(usize, OrderedFloat<T>)>
@@ -39,8 +44,6 @@ where
     pub schedule: Vec<usize>,
     /// total makespan (max completion time over all resources)
     pub value: T,
-    /// approximation factor
-    pub approx_factor: f64,
     /// number of resources
     pub num_resources: usize,
 }
@@ -55,7 +58,7 @@ where
     /// ```
     /// # extern crate makespan;
     /// let solution = makespan::Solution {
-    ///     schedule: vec![0, 1, 0, 2], value: 2., approx_factor: 0., num_resources: 3,
+    ///     schedule: vec![0, 1, 0, 2], value: 2., num_resources: 3,
     /// };
     /// let gantt = solution.gantt_schedule();
     /// assert_eq!(gantt[&0], vec![0, 2]);
@@ -83,7 +86,7 @@ where
     /// ```
     /// # extern crate makespan;
     /// let solution = makespan::Solution {
-    ///     schedule: vec![0, 1, 0, 2], value: 2., approx_factor: 0., num_resources: 3,
+    ///     schedule: vec![0, 1, 0, 2], value: 2., num_resources: 3,
     /// };
     /// assert_eq!(solution.task_loads(), vec![2, 1, 1]);
     /// ```
@@ -96,8 +99,6 @@ where
     }
 }
 
-// TODO: split Solution and return this instead
-//  - possibly include separate variants for BnB and approx.
 #[derive(Debug)]
 pub struct Stats<T>
 where
@@ -112,7 +113,43 @@ where
     /// number of tasks
     pub num_tasks: usize,
     /// elapsed time in since scheduling started
-    elapsed: Duration,
+    pub elapsed: Duration,
+    /// no. expanded nodes
+    pub expanded: u64,
+    /// no. nodes pruned based on objective value
+    pub pruned_value: u64,
+    /// no. nodes pruned based on heuristic value
+    pub pruned_h_value: u64,
+    /// no. nodes pruned because state was re-visited
+    pub pruned_closed: u64,
+    /// true iff optimal solution has been found within time limit
+    pub proved_optimal: bool,
+}
+
+impl<T> Stats<T>
+where
+    T: Float + Default,
+{
+    fn approx(
+        value: T,
+        approx_factor: f64,
+        num_resources: usize,
+        num_tasks: usize,
+        elapsed: Duration,
+    ) -> Self {
+        Self {
+            value,
+            approx_factor,
+            num_resources,
+            num_tasks,
+            elapsed,
+            expanded: 0,
+            pruned_value: 0,
+            pruned_h_value: 0,
+            pruned_closed: 0,
+            proved_optimal: false,
+        }
+    }
 }
 
 // TODO: maybe use as a return type for the schedule?
@@ -157,8 +194,9 @@ pub enum Scheduler {
 /// # extern crate makespan;
 /// use makespan::Scheduler;
 /// let pts = vec![5., 5., 4., 4., 3., 3., 3.];
-/// let solution = Scheduler::LPT.schedule(&pts, 3).unwrap();
+/// let (solution, stats) = Scheduler::LPT.schedule(&pts, 3).unwrap();
 /// assert_eq!(solution.value, 11.); // opt = 9.
+/// assert_eq!(stats.approx_factor, 1.4444444444444444); // 11. < 9. * 1.4444444444444444 = 13.
 /// ```
 ///
 /// ## Optimal solver
@@ -170,16 +208,20 @@ impl Scheduler {
     ///
     /// The solution will generally exist except some edge cases when there are either no tasks or
     /// resources.
-    pub fn schedule<T>(&self, processing_times: &[T], num_resources: usize) -> Option<Solution<T>>
+    pub fn schedule<T>(
+        &self,
+        processing_times: &[T],
+        num_resources: usize,
+    ) -> Option<(Solution<T>, Stats<T>)>
     where
-        T: Float + Default,
+        T: Float + Default + Sum,
     {
         match self {
             Self::LPT => lpt(processing_times, num_resources),
             Self::BnB { timeout } => bnb(
                 processing_times,
                 num_resources,
-                timeout.unwrap_or(Duration::from_secs_f64(Float::infinity())),
+                timeout.unwrap_or(Duration::from_secs_f64(1000000f64)), // FIXME: default
             ),
         }
     }
@@ -206,7 +248,7 @@ where
     processing_times.sort_by(|(_, x), (_, y)| x.cmp(y).reverse());
 }
 
-fn lpt<T>(processing_times: &[T], num_resources: usize) -> Option<Solution<T>>
+fn lpt<T>(processing_times: &[T], num_resources: usize) -> Option<(Solution<T>, Stats<T>)>
 where
     T: Float + Default,
 {
@@ -224,7 +266,7 @@ where
 fn into_lpt_schedule<T>(
     processing_times: &mut [(usize, OrderedFloat<T>)],
     num_resources: usize,
-) -> Option<Solution<T>>
+) -> Option<(Solution<T>, Stats<T>)>
 where
     T: Float + Default,
 {
@@ -239,13 +281,15 @@ where
 fn lpt_sorted<T>(
     processing_times: &[(usize, OrderedFloat<T>)],
     num_resources: usize,
-) -> Option<Solution<T>>
+) -> Option<(Solution<T>, Stats<T>)>
 where
     T: Float + Default,
 {
     if processing_times.is_empty() || num_resources == 0 {
         return None;
     }
+
+    let start = SystemTime::now();
 
     let num_tasks = processing_times.len();
 
@@ -277,26 +321,37 @@ where
         .map(|m| 1. + (1. / m as f64) + (1. / (m * num_resources as u32) as f64))
         .unwrap_or(1f64);
 
-    Some(Solution {
+    let solution = Solution {
         schedule,
         value: value.0,
+        num_resources,
+    };
+
+    let elapsed = start.elapsed().expect("Failed to get elapsed system time.");
+    let stats = Stats::approx(
+        value.into_inner(),
         approx_factor,
         num_resources,
-    })
+        num_tasks,
+        elapsed,
+    );
+
+    Some((solution, stats))
 }
 
-struct BnBState<T>
+struct BnBNode<T>
 where
     T: Float + Default,
 {
     id: u64,
-    schedule: Vec<usize>,
+    schedule: HashMap<usize, usize>,
     completion_times: Vec<OrderedFloat<T>>,
+    remaining_time: OrderedFloat<T>,
     value: OrderedFloat<T>,
     h_value: OrderedFloat<T>,
 }
 
-impl<T> BnBState<T>
+impl<T> BnBNode<T>
 where
     T: Float + Default,
 {
@@ -308,19 +363,104 @@ where
         hasher.finish()
     }
 
-    fn init(num_resources: usize, h_value: T) -> Self {
-        let completion_times = vec![OrderedFloat::default(); num_resources];
-        BnBState {
+    fn init(num_resources: usize, remaining_time: OrderedFloat<T>, h_value: T) -> Self {
+        let completion_times = vec![OrderedFloat(T::zero()); num_resources];
+        Self {
             id: Self::compute_hash(&completion_times),
-            schedule: Vec::new(),
+            schedule: HashMap::new(), // TODO: with capacity `num_tasks`
             completion_times,
-            value: OrderedFloat::default(),
+            remaining_time,
+            value: OrderedFloat(T::zero()),
             h_value: OrderedFloat(h_value),
+        }
+    }
+
+    fn get_pruned_resources(&self) -> Vec<(usize, OrderedFloat<T>)> {
+        let mut resource_completions = self
+            .completion_times
+            .iter()
+            .enumerate()
+            .map(|(r, ct)| (r, *ct))
+            .collect::<Vec<(usize, OrderedFloat<T>)>>();
+
+        // prune resource symmetries:
+        // if two resources have the same completion time, it's safely keep just one
+        // because both trees are symmetric
+        resource_completions.sort_by(|(_, x), (_, y)| x.cmp(y));
+        resource_completions.dedup_by(|(_, x), (_, y)| x == y);
+
+        resource_completions
+    }
+
+    fn expand(
+        &self,
+        task: (usize, OrderedFloat<T>),
+        resource: usize,
+        best_value: T,
+        closed: &HashSet<u64>,
+    ) -> BnBExpansion<T>
+    where
+        T: Float + Default,
+    {
+        let (task, pt) = task;
+        let best_value = OrderedFloat(best_value);
+
+        // generate core of the new state (completion times & remaining_time)
+        let mut completion_times = self.completion_times.to_vec();
+        completion_times[resource] = OrderedFloat(completion_times[resource].into_inner() + pt.0);
+
+        let remaining_time = OrderedFloat(self.remaining_time.into_inner() - pt.into_inner());
+
+        // evaluate objective fn for new schedule
+        let value = *completion_times
+            .iter()
+            .max()
+            .unwrap_or(&OrderedFloat(Float::infinity()));
+
+        // prune sub-optimal
+        if value < best_value || self.schedule.is_empty() {
+            let id = BnBNode::compute_hash(&completion_times);
+
+            // prune symmetries
+            if closed.contains(&id) {
+                return BnBExpansion::StateVisited;
+            }
+
+            let h_value = heuristic(&completion_times, remaining_time);
+            return if h_value < best_value {
+                let mut schedule = self.schedule.clone();
+                schedule.insert(task, resource);
+                BnBExpansion::NewNode(BnBNode {
+                    id,
+                    schedule,
+                    completion_times,
+                    remaining_time: OrderedFloat(remaining_time.into_inner()),
+                    value,
+                    h_value,
+                })
+            } else {
+                BnBExpansion::HeuristicSubOptimal
+            };
+        }
+
+        BnBExpansion::ValueSubOptimal
+    }
+
+    fn to_solution(&self) -> Solution<T> {
+        // TODO: could this be done without copy?
+        let mut schedule = vec![0usize; self.schedule.len()];
+        for (task, resource) in self.schedule.iter() {
+            schedule[*task] = *resource;
+        }
+        Solution {
+            schedule,
+            value: self.value.into_inner(),
+            num_resources: self.completion_times.len(),
         }
     }
 }
 
-impl<T> Hash for BnBState<T>
+impl<T> Hash for BnBNode<T>
 where
     T: Float + Default,
 {
@@ -338,7 +478,7 @@ where
     }
 }
 
-impl<T> PartialEq for BnBState<T>
+impl<T> PartialEq for BnBNode<T>
 where
     T: Float + Default,
 {
@@ -351,9 +491,9 @@ where
     }
 }
 
-impl<T> Eq for BnBState<T> where T: Float + Default {}
+impl<T> Eq for BnBNode<T> where T: Float + Default {}
 
-impl<T> PartialOrd for BnBState<T>
+impl<T> PartialOrd for BnBNode<T>
 where
     T: Float + Default,
 {
@@ -362,19 +502,29 @@ where
     }
 }
 
-impl<T> Ord for BnBState<T>
+impl<T> Ord for BnBNode<T>
 where
     T: Float + Default,
 {
-    fn cmp(&self, other: &BnBState<T>) -> Ordering {
+    fn cmp(&self, other: &BnBNode<T>) -> Ordering {
         // reverse because BnB uses a max-heap and our objective is to minimize
         self.h_value.cmp(&other.h_value).reverse()
     }
 }
 
-fn bnb<T>(processing_times: &[T], num_resources: usize, timeout: Duration) -> Option<Solution<T>>
+// TODO: generalize over heuristic
+/// Search for optimal solution of `P || C_max` using Best-first BnB.
+///
+/// The *heuristic* `h(N)` of a node `N` (partial solution) is the minimum makespan of a schedule
+/// that is initialized to the partial solution of `N` and completed by relaxing the problem and
+/// allowing task preemption (i.e. remaining tasks are scheduled as `P |preempt| C_max`).
+fn bnb<T>(
+    processing_times: &[T],
+    num_resources: usize,
+    timeout: Duration,
+) -> Option<(Solution<T>, Stats<T>)>
 where
-    T: Float + Default,
+    T: Float + Default + Sum,
 {
     let start = SystemTime::now();
 
@@ -387,52 +537,134 @@ where
 
     let mut processing_times = preprocess(processing_times);
 
-    let mut expanded = 0u32;
-    let mut pruned_value = 0u32;
-    let mut pruned_h_value = 0u32;
-    let mut pruned_closed = 0u32;
-    let mut proved_optimal = true;
-
     // pre-sorted set of tasks:
     //  1. LPT does it anyway
     //  2. Heuristic: larger tasks might prude the space sooner
     sort_by_processing_time(&mut processing_times);
 
+    let total_time = compute_total_time(&processing_times);
+
     // closed set will store just state hashes (ids) as unique identifiers to save memory
     let mut closed: HashSet<u64> = HashSet::new();
 
     // run LPT to get lower bound (LB) on the solution
-    // TODO: should be BnBState
-    let mut best = lpt_sorted(&processing_times, num_resources)?;
+    let (mut best, mut stats) = lpt_sorted(&processing_times, num_resources)?;
+    // assume we can find optimal solution in time and adjust later if not
+    stats.proved_optimal = true;
+    stats.approx_factor = 1.;
 
     let mut queue = BinaryHeap::new();
-    queue.push(BnBState::init(num_resources, best.value));
+    queue.push(BnBNode::init(num_resources, total_time, best.value));
 
+    // Best-first search using f(N) = h(N)
     while let Some(node) = queue.pop() {
+        stats.expanded += 1;
+
         // return current best if running for more than given time limit
         let elapsed = start.elapsed().expect("Failed to get elapsed system time.");
         if elapsed > timeout {
-            proved_optimal = false;
+            stats.proved_optimal = false;
+            stats.approx_factor = f64::nan();
             break;
         }
 
-        // TODO: implement
+        if node.schedule.len() == num_tasks {
+            // complete solution
+            if node.value.into_inner() < best.value {
+                // found new minimum
+                best = node.to_solution();
+                stats.value = best.value;
+            }
+        } else {
+            // inner node -> extend partial solution
+
+            // select next task to schedule
+            // heuristic: select the longest task that restricts the space the most
+            //  - keep in mind that `processing_times` are already pre-sorted
+            let task = *processing_times
+                .iter()
+                .find(|(task, _)| !node.schedule.contains_key(task))
+                .expect("No task left yet solution was NOT complete!");
+
+            // branch on pruned resources
+            for (resource, _) in node.get_pruned_resources().into_iter() {
+                // assign task -> resource
+                match node.expand(task, resource, best.value, &closed) {
+                    BnBExpansion::NewNode(n) => {
+                        closed.insert(n.id);
+                        queue.push(n)
+                    }
+                    BnBExpansion::ValueSubOptimal => stats.pruned_value += 1,
+                    BnBExpansion::HeuristicSubOptimal => stats.pruned_h_value += 1,
+                    BnBExpansion::StateVisited => stats.pruned_closed += 1,
+                }
+            }
+        }
     }
 
-    None
+    Some((best, stats))
+}
+
+enum BnBExpansion<T: Float + Default> {
+    NewNode(BnBNode<T>),
+    ValueSubOptimal,
+    HeuristicSubOptimal,
+    StateVisited,
+}
+
+fn heuristic<T>(
+    completion_times: &[OrderedFloat<T>],
+    remaining_time: OrderedFloat<T>,
+) -> OrderedFloat<T>
+where
+    T: Float + Default,
+{
+    if completion_times.is_empty() {
+        return OrderedFloat::default();
+    }
+
+    let mut completion_times = completion_times.to_vec();
+    let mut remaining_time = remaining_time.into_inner();
+
+    while OrderedFloat(remaining_time) > OrderedFloat(T::zero()) {
+        let any_ct = completion_times.first().expect("empty completion times");
+
+        if completion_times.iter().all(|ct| ct == any_ct) {
+            let fraction = remaining_time / T::from::<usize>(completion_times.len()).unwrap();
+            return OrderedFloat(any_ct.into_inner() + fraction);
+        }
+
+        let (a_min, min) = minimize(&completion_times, identity).unwrap();
+        let (a_max, _) = minimize(&completion_times, |ct| OrderedFloat(ct.neg())).unwrap();
+
+        let diff = completion_times[a_max].0 - min.0;
+        completion_times[a_min] = OrderedFloat(min.0 + diff);
+        remaining_time = remaining_time - diff;
+    }
+
+    completion_times.into_iter().max().unwrap()
+}
+
+fn compute_total_time<T>(processing_times: &[(usize, OrderedFloat<T>)]) -> OrderedFloat<T>
+where
+    T: Float + Sum,
+{
+    OrderedFloat(processing_times.iter().map(|(_, pt)| pt.into_inner()).sum())
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{Scheduler, Solution};
     use std::collections::HashMap;
+
+    use ordered_float::OrderedFloat;
+
+    use crate::{Scheduler, Solution};
 
     #[test]
     fn solution_gantt_schedule() {
         let solution = Solution {
             schedule: vec![0, 1, 0, 2],
             value: 2.,
-            approx_factor: 0.,
             num_resources: 3,
         };
 
@@ -445,28 +677,29 @@ mod tests {
     }
 
     #[test]
-    fn lpt_trivial_cases() {
-        let scheduler = Scheduler::LPT;
+    fn trivial_cases() {
+        let schedulers = [Scheduler::LPT, Scheduler::BnB { timeout: None }];
 
-        // no tasks
-        let pts: Vec<f64> = Vec::new();
-        assert!(scheduler.schedule(&pts, 2).is_none());
+        for scheduler in schedulers.iter() {
+            // no tasks
+            let pts: Vec<f64> = Vec::new();
+            assert!(scheduler.schedule(&pts, 2).is_none());
 
-        // no resources
-        let pts = vec![10., 20.];
-        assert!(scheduler.schedule(&pts, 0).is_none());
+            // no resources
+            let pts = vec![10., 20.];
+            assert!(scheduler.schedule(&pts, 0).is_none());
 
-        // single resource
-        let solution = scheduler.schedule(&pts, 1).unwrap();
-        assert_eq!(solution.schedule, vec![0; pts.len()]);
-        assert_eq!(solution.value, 30.);
-        assert_eq!(solution.approx_factor, 2.);
+            // single resource
+            let (solution, _) = scheduler.schedule(&pts, 1).unwrap();
+            assert_eq!(solution.schedule, vec![0; pts.len()]);
+            assert_eq!(solution.value, 30.);
+        }
     }
 
     #[test]
     fn non_trivial_lpt_schedule() {
         let pts = vec![5., 5., 4., 4., 3., 3., 3.];
-        let solution = Scheduler::LPT.schedule(&pts, 3).unwrap();
+        let (solution, stats) = Scheduler::LPT.schedule(&pts, 3).unwrap();
 
         // schedule (LPT with stable sort is deterministic)
         assert_eq!(solution.schedule, vec![0, 1, 2, 2, 0, 1, 0]);
@@ -482,8 +715,57 @@ mod tests {
 
         // objective value is correct
         assert_eq!(solution.value, 11.); // opt: 9.
+        assert_eq!(stats.value, solution.value);
 
         // approx. factor is correct
-        assert_eq!(solution.approx_factor, 1.4444444444444444);
+        assert_eq!(stats.approx_factor, 1.4444444444444444);
+
+        assert!(!stats.proved_optimal);
+    }
+
+    #[test]
+    fn non_trivial_bnb_schedule() {
+        let scheduler = Scheduler::BnB { timeout: None };
+
+        let pts = vec![5., 5., 4., 4., 3., 3., 3.];
+        let (solution, stats) = scheduler.schedule(&pts, 3).unwrap();
+
+        // schedule contains all resources from input range
+        let mut resources = solution.schedule.to_vec();
+        resources.sort();
+        resources.dedup();
+        assert_eq!(resources, vec![0, 1, 2]);
+
+        // task distribution is correct (except symmetries, hence the sort)
+        let mut dist = solution.task_loads();
+        dist.sort();
+        assert_eq!(dist, vec![2, 2, 3]);
+
+        // objective value is correct and optimal
+        assert_eq!(solution.value, 9.);
+        assert_eq!(stats.value, solution.value);
+
+        // approx. factor set to 1.
+        assert_eq!(stats.approx_factor, 1.);
+
+        // compared to LPT, there should be some expanded nodes from the search tree
+        assert!(stats.expanded > 0);
+
+        // optimality should be known
+        assert!(stats.proved_optimal);
+    }
+
+    #[test]
+    fn heuristic() {
+        let cts = vec![OrderedFloat(1.0), OrderedFloat(2.0), OrderedFloat(1.5)];
+
+        // no remaining time
+        assert_eq!(crate::heuristic(&cts, OrderedFloat(0.)), OrderedFloat(2.));
+
+        // some remaining time
+        assert_eq!(crate::heuristic(&cts, OrderedFloat(4.5)), OrderedFloat(3.));
+
+        // another scenario with remaining time
+        assert_eq!(crate::heuristic(&cts, OrderedFloat(0.5)), OrderedFloat(2.));
     }
 }
