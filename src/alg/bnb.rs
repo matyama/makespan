@@ -10,7 +10,7 @@ use num::Float;
 use ordered_float::OrderedFloat;
 
 use crate::alg::core::*;
-use crate::alg::lpt::lpt_sorted;
+use crate::alg::lpt::greedy_schedule;
 
 // TODO: generalize over heuristic
 /// Search for optimal solution of `P || C_max` using Best-first BnB.
@@ -48,7 +48,7 @@ where
     let mut closed: HashSet<u64> = HashSet::new();
 
     // run LPT to get lower bound (LB) on the solution
-    let (mut best, mut stats) = lpt_sorted(&processing_times, num_resources)?;
+    let (mut best, mut stats) = greedy_schedule(&processing_times, num_resources, start)?;
     // assume we can find optimal solution in time and adjust later if not
     stats.proved_optimal = true;
     stats.approx_factor = 1.;

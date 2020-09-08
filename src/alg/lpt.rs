@@ -10,7 +10,7 @@ use crate::alg::core::*;
 /// Asymptotic runtime is `O(n*log(n))` time where `n` is the number of non-preemptive tasks.
 ///
 /// Approximation factor is `r(LPT) = 1 + 1/k − 1/kR` where
-///  * `R` is no. resources
+///  * `R` is no. resources (`R << n`)
 ///  * `k` is no. tasks assigned to the resource which finishes last
 pub(crate) fn lpt<T>(
     processing_times: &[T],
@@ -23,31 +23,25 @@ where
         return None;
     }
 
+    let start = SystemTime::now();
+
     // collect pairs (task, processing time) to preserve original tasks - O(n)
     let mut processing_times = preprocess(processing_times);
 
-    into_lpt_schedule(&mut processing_times, num_resources)
-}
-
-/// Consume `processing_times` and compute LPT schedule (see `lpt`).
-pub(crate) fn into_lpt_schedule<T>(
-    processing_times: &mut [(usize, OrderedFloat<T>)],
-    num_resources: usize,
-) -> Option<(Solution<T>, Stats<T>)>
-where
-    T: Float + Default,
-{
     // sort tasks in non-increasing processing times - O(n * log(n))
-    sort_by_processing_time(processing_times);
+    sort_by_processing_time(&mut processing_times);
 
-    lpt_sorted(processing_times, num_resources)
+    // Assign sorted tasks in greedy way - O(n)
+    greedy_schedule(&processing_times, num_resources, start)
 }
 
-/// Run LPT with the assumption that `processing_times` are given as pairs `(task, time)` and are
-/// already sorted by processing times.
-pub(crate) fn lpt_sorted<T>(
+/// Assume that `processing_times` are given as pairs `(task, time)` and are
+/// already sorted by processing times. Then this function sequentially assigns tasks to resources
+/// while minimizing maximum completion time (makespan).
+pub(crate) fn greedy_schedule<T>(
     processing_times: &[(usize, OrderedFloat<T>)],
     num_resources: usize,
+    start: SystemTime,
 ) -> Option<(Solution<T>, Stats<T>)>
 where
     T: Float + Default,
@@ -55,8 +49,6 @@ where
     if processing_times.is_empty() || num_resources == 0 {
         return None;
     }
-
-    let start = SystemTime::now();
 
     let num_tasks = processing_times.len();
 

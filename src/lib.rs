@@ -28,7 +28,7 @@ pub use alg::{Solution, Stats};
 /// `O(n*log(n))` time where `n` is the number of non-preemptive tasks to schedule.
 ///
 /// Approximation factor is `r(LPT) = 1 + 1/k − 1/kR` where
-///  * `R` is no. resources
+///  * `R` is no. resources (generally assumbed to be `R << n`)
 ///  * `k` is no. tasks assigned to the resource which finishes last
 ///
 /// ### Examples
@@ -49,7 +49,7 @@ pub use alg::{Solution, Stats};
 ///
 /// Because the scheduling problem is known to be NP-hard, it is believed that there is no
 /// polynomial algorithm. Then it is not surprising that this implementation runs in `O(R^n)` where
-/// `R` is the number of resources and `n` is again the number of tasks.
+/// `R` is the number of resources and `n` is again the number of tasks (`R << n`).
 ///
 /// As mentioned above, this algorithm uses a Best-first search under the hood which means that
 /// nodes to expand in the BnB tree are picked based on a heuristic function `h(N)`. The heuristic
