@@ -1,3 +1,40 @@
+//! # Task scheduler
+//! This library implements several solvers for `P || C_max` task scheduling problem.
+//!
+//! `P || C_max` is a `a|b|c` notation used in *operations research* where
+//!   1. `P` stands for **parallel identical resources**
+//!   2. `||` denotes that there are no task constraints, notably that **tasks are non-preemptive**
+//!   3. `C_max` means that the objective is to **minimize the maximum completion time** (makespan)
+//!
+//! This task is in general NP-hard and is sometimes called *Load balancing problem* or
+//! *Minimum makespan scheduling*.
+//!
+//! ## Scheduler variants
+//! There are two algorithms for solving the minimum makespan problem:
+//!  1. Approximate solver - `LPT` (Longest Processing Time First)
+//!  2. Optimal solver - `BnB` (Branch & Bound Best-first search)
+//!
+//! ## Example
+//! ```rust
+//! # extern crate makespan;
+//! use makespan::Scheduler;
+//!
+//! // Define a vector of processing times for each task
+//! let processing_times = vec![5., 5., 4., 4., 3., 3., 3.];
+//!
+//! // Create new Branch & Bound scheduler
+//! let scheduler = Scheduler::BnB { timeout: None };
+//!
+//! // Find optimal schedule for 3 resources
+//! let (solution, stats) = scheduler.schedule(&processing_times, 3).unwrap();
+//!
+//! for (task, resource) in solution.schedule.iter().enumerate() {
+//!     println!("{} <- {}", resource, task);
+//! }
+//!
+//! assert_eq!(solution.value, 9.);
+//! ```
+
 use std::iter::Sum;
 use std::time::Duration;
 
@@ -8,15 +45,10 @@ mod alg;
 pub use alg::{Solution, Stats};
 
 // TODO: Allow T to be int type / any type that can be converted to f64
-/// Solver for `P || C_max` task scheduling problem.
-///
-/// `P || C_max` is a `a|b|c` notation used in *operations research* where
-///   1. `P` stands for **parallel identical resources**
-///   2. `||` denotes that there are no task constraints, notably that **tasks are non-preemptive**
-///   3. `C_max` means that the objective is to **minimize the maximum completion time** (makespan)
-///
-/// This task is in general NP-hard and is sometimes called *Load balancing problem* or
-/// *Minimum makespan scheduling*.
+/// Solver for `P || C_max` task scheduling problem. The setting is
+///  * parallel identical resources
+///  * no task constraints
+///  * minimization of maximum task completion time
 ///
 /// # Scheduler instances
 /// There are two types of scheduler variants:
@@ -34,7 +66,7 @@ pub use alg::{Solution, Stats};
 /// ### Examples
 ///
 /// Example where a sub-optimal solution is found.
-/// ```
+/// ```rust
 /// # extern crate makespan;
 /// use makespan::Scheduler;
 /// let pts = vec![5., 5., 4., 4., 3., 3., 3.];
@@ -71,7 +103,7 @@ pub use alg::{Solution, Stats};
 /// ### Examples
 ///
 /// Example where an optimal solution is better than the one found by LPT.
-/// ```
+/// ```rust
 /// # extern crate makespan;
 /// use makespan::Scheduler;
 /// let pts = vec![5., 5., 4., 4., 3., 3., 3.];

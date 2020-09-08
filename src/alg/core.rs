@@ -32,7 +32,7 @@ where
     /// Generate schedule in the form of a Gantt chart, i.e. as mapping: `resource -> [tasks]`.
     ///
     /// # Example
-    /// ```
+    /// ```rust
     /// # extern crate makespan;
     /// let solution = makespan::Solution {
     ///     schedule: vec![0, 1, 0, 2], value: 2., num_resources: 3,
@@ -60,7 +60,7 @@ where
     /// Compute distribution of tasks to resources, i.e. `loads[resource] = #tasks`
     ///
     /// # Example
-    /// ```
+    /// ```rust
     /// # extern crate makespan;
     /// let solution = makespan::Solution {
     ///     schedule: vec![0, 1, 0, 2], value: 2., num_resources: 3,
