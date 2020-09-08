@@ -17,11 +17,11 @@ use crate::alg::lpt::lpt_sorted;
 ///
 /// The *heuristic* `h(N)` of a node `N` (partial solution) is the minimum makespan of a schedule
 /// that is initialized to the partial solution of `N` and completed by relaxing the problem and
-/// allowing task preemption (i.e. remaining tasks are scheduled as `P |preempt| C_max`).
+/// allowing task preemption (i.e. remaining tasks are scheduled as `P |pmtn| C_max`).
 pub(crate) fn bnb<T>(
     processing_times: &[T],
     num_resources: usize,
-    timeout: Duration,
+    timeout: Option<Duration>,
 ) -> Option<(Solution<T>, Stats<T>)>
 where
     T: Float + Default + Sum,
@@ -61,11 +61,13 @@ where
         stats.expanded += 1;
 
         // return current best if running for more than given time limit
-        let elapsed = start.elapsed().expect("Failed to get elapsed system time.");
-        if elapsed > timeout {
-            stats.proved_optimal = false;
-            stats.approx_factor = f64::nan();
-            break;
+        if let Some(timeout) = timeout {
+            let elapsed = start.elapsed().expect("Failed to get elapsed system time.");
+            if elapsed > timeout {
+                stats.proved_optimal = false;
+                stats.approx_factor = f64::nan();
+                break;
+            }
         }
 
         if node.schedule.len() == num_tasks {
@@ -102,6 +104,7 @@ where
         }
     }
 
+    stats.elapsed = start.elapsed().expect("Failed to get elapsed system time.");
     Some((best, stats))
 }
 

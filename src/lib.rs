@@ -44,8 +44,41 @@ pub use alg::{Solution, Stats};
 /// ```
 ///
 /// ## Optimal solver
-/// TODO
+/// Optimal solver impements Branch and Bound (BnB) Best-first search. This algorithm is complete
+/// and optimal, i.e. finds optimal schedule given enough time to run (controlled by `timeout`).
 ///
+/// Because the scheduling problem is known to be NP-hard, it is believed that there is no
+/// polynomial algorithm. Then it is not surprising that this implementation runs in `O(R^n)` where
+/// `R` is the number of resources and `n` is again the number of tasks.
+///
+/// As mentioned above, this algorithm uses a Best-first search under the hood which means that
+/// nodes to expand in the BnB tree are picked based on a heuristic function `h(N)`. The heuristic
+/// is a simple *admissible* estimate of the value of partial solution `N` obtained by scheduling
+/// remaining tasks as if the problem was `P |pmtn| C_max` - i.e. relaxes the problem by allowing
+/// task preemption. Moreover, in current implementation we allow indefinite number of pauses and
+/// resumes and tasks can have inner parallelism (more parts can run at the same time).
+///
+/// Additional optimization techniques include:
+///  * Initial best solution `B` is found by LPT and the search keeps only nodes with `f(N) < f(B)`
+///  * Pruning based on `h(N)` (i.e. `h(N) < f(B)` must hold to expand node `N`)
+///  * Pruning resource and task symmetries (e.g. with two identical tasks j1, j2 these assignments
+///    are symmetric: `[0 <- j1, 1 <- j2] =sym= [0 <- j2, 1 <- j1]`)
+///  * Tasks are pre-sorted by processing times (non-increasingly) and BnB then starts with longer
+///    tasks first when it selects next task to extend the partial solution with. This heuristic
+///    should in theory restrict the space more early in the search and thus help to prune
+///    sub-optimal solutions.
+///
+/// ### Examples
+///
+/// Example where an optimal solution is better than the one found by LPT.
+/// ```
+/// # extern crate makespan;
+/// use makespan::Scheduler;
+/// let pts = vec![5., 5., 4., 4., 3., 3., 3.];
+/// let (solution, stats) = Scheduler::BnB { timeout: None }.schedule(&pts, 3).unwrap();
+/// assert_eq!(solution.value, 9.);
+/// assert!(stats.proved_optimal);
+/// ```
 pub enum Scheduler {
     /// Longest Processing Time First approximate solver
     LPT,
@@ -69,11 +102,7 @@ impl Scheduler {
     {
         match self {
             Self::LPT => alg::lpt(processing_times, num_resources),
-            Self::BnB { timeout } => alg::bnb(
-                processing_times,
-                num_resources,
-                timeout.unwrap_or(Duration::from_secs_f64(1000000f64)), // FIXME: default
-            ),
+            Self::BnB { timeout } => alg::bnb(processing_times, num_resources, *timeout),
         }
     }
 }
