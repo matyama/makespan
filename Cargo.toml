@@ -5,7 +5,7 @@ authors = ["Martin Matyášek <martin.matyasek@gmail.com>"]
 edition = "2018"
 description = "Minimum makespan scheduler"
 repository = "https://github.com/matyama/makespan"
-license = "MIT OR Apache-2.0"
+license-file = "LICENSE"
 keywords = ["scheduling", "makespan", "operations research"]
 categories = ["algorithms", "science"]
 
