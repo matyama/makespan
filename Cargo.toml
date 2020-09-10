@@ -5,11 +5,12 @@ authors = ["Martin Matyášek <martin.matyasek@gmail.com>"]
 edition = "2018"
 description = "Minimum makespan scheduler"
 repository = "https://github.com/matyama/makespan"
-license-file = "LICENSE"
+license = "MIT OR Apache-2.0"
 keywords = ["scheduling", "makespan", "operations research"]
 categories = ["algorithms", "science"]
 
 [badges]
+codecov = { repository = "matyama/makespan", branch = "master", service = "github" }
 maintenance = { status = "actively-developed" }
 
 [lib]

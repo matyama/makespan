@@ -1,4 +1,5 @@
 ![makespan](https://github.com/matyama/makespan/workflows/makespan/badge.svg)
+[![Coverage Status](https://codecov.io/gh/matyama/makespan/branch/master/graph/badge.svg)](https://codecov.io/gh/matyama/makespan)
 ![Maintenance](https://img.shields.io/badge/maintenance-activly--developed-brightgreen.svg)
 
 # makespan

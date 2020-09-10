@@ -18,5 +18,19 @@ jobs:
     - uses: actions/checkout@v2
     - name: Build
       run: cargo build --verbose
+# TODO: Setup [cargo-deny](https://crates.io/crates/cargo-deny)
+#    - name: Run dependency lint
+#      run:
+#        - cargo install cargo-deny
+#        - cargo deny init
+#        - cargo deny check
+    - name: Run checks
+      run: cargo clippy --all-features -- -D warnings
     - name: Run tests
       run: cargo test --verbose
+
+# TODO: Generate Codecov report and enable upload - [see this](https://github.com/codecov/codecov-action)
+#    - name: Upload coverage to Codecov
+#      uses: codecov/codecov-action@v1
+#      with:
+#        fail_ci_if_error: true
