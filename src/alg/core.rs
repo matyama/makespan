@@ -2,7 +2,7 @@ use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::time::Duration;
 
-use num::Float;
+use num_traits::Float;
 use ordered_float::OrderedFloat;
 
 // TODO: ideally impl something like Add for OrderedFloat<T>

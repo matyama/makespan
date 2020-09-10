@@ -6,7 +6,7 @@ use std::hash::{Hash, Hasher};
 use std::iter::Sum;
 use std::time::{Duration, SystemTime};
 
-use num::Float;
+use num_traits::Float;
 use ordered_float::OrderedFloat;
 
 use crate::alg::core::*;

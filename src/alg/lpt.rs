@@ -1,6 +1,6 @@
 use std::time::SystemTime;
 
-use num::Float;
+use num_traits::Float;
 use ordered_float::OrderedFloat;
 
 use crate::alg::core::*;
@@ -67,10 +67,7 @@ where
     }
 
     // compute final objective value (C_max) - O(R)
-    let value = completion_times
-        .into_iter()
-        .max()
-        .unwrap_or_default();
+    let value = completion_times.into_iter().max().unwrap_or_default();
     // let value = completion_times.into_iter().max_by(cmp_f64).unwrap_or(0f64);
 
     // compute approximation factor r(LPT) - O(R)

@@ -38,7 +38,7 @@
 use std::iter::Sum;
 use std::time::Duration;
 
-use num::Float;
+use num_traits::Float;
 
 mod alg;
 

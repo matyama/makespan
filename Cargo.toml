@@ -18,5 +18,5 @@ name = "makespan"
 path = "src/lib.rs"
 
 [dependencies]
-num = "0.3"
-ordered-float = "0.5"
+num-traits = "0.2"
+ordered-float = "2.0"
