@@ -45,8 +45,8 @@ where
     pub fn gantt_schedule(&self) -> HashMap<usize, Vec<usize>> {
         let mut gantt: HashMap<usize, Vec<usize>> = HashMap::with_capacity(self.num_resources);
 
-        for (task, resource) in self.schedule.iter().enumerate() {
-            match gantt.entry(*resource) {
+        for (task, &resource) in self.schedule.iter().enumerate() {
+            match gantt.entry(resource) {
                 Entry::Occupied(mut e) => e.get_mut().push(task),
                 Entry::Vacant(e) => {
                     e.insert(vec![task]);
@@ -69,8 +69,8 @@ where
     /// ```
     pub fn task_loads(&self) -> Vec<u32> {
         let mut task_dist = vec![0u32; self.num_resources];
-        for resource in self.schedule.iter() {
-            task_dist[*resource] += 1;
+        for &resource in self.schedule.iter() {
+            task_dist[resource] += 1;
         }
         task_dist
     }
