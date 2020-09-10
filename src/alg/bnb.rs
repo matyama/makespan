@@ -261,10 +261,6 @@ where
     fn eq(&self, other: &Self) -> bool {
         self.id == other.id
     }
-
-    fn ne(&self, other: &Self) -> bool {
-        !self.eq(other)
-    }
 }
 
 impl<T> Eq for BnBNode<T> where T: Float + Default {}

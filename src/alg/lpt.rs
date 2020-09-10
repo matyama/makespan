@@ -70,7 +70,7 @@ where
     let value = completion_times
         .into_iter()
         .max()
-        .unwrap_or(OrderedFloat::default());
+        .unwrap_or_default();
     // let value = completion_times.into_iter().max_by(cmp_f64).unwrap_or(0f64);
 
     // compute approximation factor r(LPT) - O(R)
