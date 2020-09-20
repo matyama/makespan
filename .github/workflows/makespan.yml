@@ -13,23 +13,58 @@ jobs:
   build:
 
     runs-on: ubuntu-latest
+# TODO: Setup multiple builds
+#    strategy:
+#      matrix:
+#        rust:
+#          - stable
+#          - beta
+#          - nightly
 
     steps:
     - uses: actions/checkout@v2
+
+    - name: Install latest nightly
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: nightly
+        override: true
+        components: rustfmt, clippy
+
     - name: Build
-      run: cargo build --verbose
+      uses: actions-rs/cargo@v1
+      with:
+        command: build
+        args: --verbose
+
 # TODO: Setup [cargo-deny](https://crates.io/crates/cargo-deny)
 #    - name: Run dependency lint
 #      run:
 #        - cargo install cargo-deny
 #        - cargo deny init
 #        - cargo deny check
-    - name: Run checks
-      run: cargo clippy --all-features -- -D warnings
-    - name: Run tests
-      run: cargo test --verbose
 
-# TODO: Generate Codecov report and enable upload - [see this](https://github.com/codecov/codecov-action)
+    - name: Run checks
+      uses: actions-rs/cargo@v1
+      with:
+        command: clippy
+        args: --all-features -- -D warnings
+
+    - name: Run tests
+      uses: actions-rs/cargo@v1
+      with:
+        command: test
+        args: --verbose --all-features --no-fail-fast
+
+    - name: Clen environment
+      uses: actions-rs/cargo@v1
+      with:
+        command: clean
+
+    - name: Generate coverage report
+      uses: actions-rs/grcov@v0.1
+
+# TODO: Codecov report upload - [see this](https://github.com/codecov/codecov-action)
 #    - name: Upload coverage to Codecov
 #      uses: codecov/codecov-action@v1
 #      with:
