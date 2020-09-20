@@ -32,6 +32,11 @@ jobs:
         override: true
         components: rustfmt, clippy
 
+    - name: Clean environment
+      uses: actions-rs/cargo@v1
+      with:
+        command: clean
+
     - name: Build
       uses: actions-rs/cargo@v1
       with:
@@ -60,11 +65,6 @@ jobs:
         CARGO_INCREMENTAL: 0
         RUSTFLAGS: -Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests
         RUSTDOCFLAGS: -Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests
-
-    - name: Clen environment
-      uses: actions-rs/cargo@v1
-      with:
-        command: clean
 
     - name: Generate coverage report
       uses: actions-rs/grcov@v0.1
