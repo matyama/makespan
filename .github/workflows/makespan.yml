@@ -67,10 +67,11 @@ jobs:
         RUSTDOCFLAGS: -Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests
 
     - name: Generate coverage report
+      id: coverage
       uses: actions-rs/grcov@v0.1
 
-# TODO: Codecov report upload - [see this](https://github.com/codecov/codecov-action)
-#    - name: Upload coverage to Codecov
-#      uses: codecov/codecov-action@v1
-#      with:
-#        fail_ci_if_error: true
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v1
+      with:
+        file: ${{steps.coverage.outputs.report}}
+        fail_ci_if_error: true
