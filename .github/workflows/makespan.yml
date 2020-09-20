@@ -13,13 +13,14 @@ jobs:
   build:
 
     runs-on: ubuntu-latest
-# TODO: Setup multiple builds
+# TODO: Setup [multiple builds](https://github.com/actions-rs/meta/blob/master/recipes/matrix.md)
 #    strategy:
 #      matrix:
 #        rust:
 #          - stable
 #          - beta
 #          - nightly
+#          - 1.46.0  # MSRV TODO: Find actually minimal version
 
     steps:
     - uses: actions/checkout@v2
@@ -55,6 +56,10 @@ jobs:
       with:
         command: test
         args: --verbose --all-features --no-fail-fast
+      env:
+        CARGO_INCREMENTAL: 0
+        RUSTFLAGS: -Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests
+        RUSTDOCFLAGS: -Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests
 
     - name: Clen environment
       uses: actions-rs/cargo@v1
