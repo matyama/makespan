@@ -142,7 +142,6 @@ where
 
 /// Find `(argmin_x f(x), min_x f(x))` of function `f` on set `xs` or `None` if `xs` is empty.
 /// If `xs` is a multi-set and the minimum is not strict, item with the lowest index is returned.
-#[inline]
 pub(crate) fn minimize<T, F>(xs: &[OrderedFloat<T>], f: F) -> Option<(usize, OrderedFloat<T>)>
 where
     T: Float,

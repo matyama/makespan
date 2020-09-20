@@ -51,7 +51,7 @@ pub use alg::{Solution, Stats};
 ///  * minimization of maximum task completion time
 ///
 /// # Scheduler instances
-/// There are two types of scheduler variants:
+/// There are two scheduler variants:
 ///  1. Approximate solver - `LPT`
 ///  2. Optimal solver - `BnB`
 ///
@@ -122,8 +122,8 @@ impl Scheduler {
     /// Run scheduling algorithm determined by this instance for given task `processing_times` and
     /// number of available resources (`num_resources`).
     ///
-    /// The solution will generally exist except some edge cases when there are either no tasks or
-    /// resources.
+    /// The solution will generally exist except for some edge cases when there are either no tasks
+    /// or resources.
     pub fn schedule<T>(
         &self,
         processing_times: &[T],
