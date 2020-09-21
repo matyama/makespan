@@ -10,6 +10,7 @@ coverage:
 
 # Tests aren't important for coverage
 ignore:
+  - "benches"
   - "tests"
 
 # Make less noisy comments
