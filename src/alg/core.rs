@@ -1,5 +1,6 @@
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
+use std::ops::RangeInclusive;
 use std::time::Duration;
 
 use num_traits::Float;
@@ -137,6 +138,28 @@ where
             pruned_closed: 0,
             proved_optimal: false,
         }
+    }
+
+    /// For an approximate algorithm returns an inclusive range of where the optimal schedule value
+    /// is, otherwise `None` is returned (whenever `approx_factor.is_nan()`).
+    ///
+    /// # Example
+    /// ```rust
+    /// # extern crate makespan;
+    /// use std::time::Duration;
+    /// use makespan::Stats;
+    ///
+    /// let stats = Stats::approx(11., 1.4444444444444444, 3, 7, Duration::from_secs(1));
+    ///
+    /// let range = stats.optimality_range().unwrap();
+    /// assert!(range.contains(&9.));
+    /// ```
+    pub fn optimality_range(&self) -> Option<RangeInclusive<T>> {
+        if self.approx_factor.is_nan() {
+            return None;
+        }
+        let start = self.value / T::from::<f64>(self.approx_factor).unwrap();
+        Some(start..=self.value)
     }
 }
 
