@@ -50,4 +50,8 @@ fn non_trivial_schedule() {
 
     // optimality should be known
     assert!(stats.proved_optimal);
+
+    // optimality range should be just single point of optimality
+    let opt_range = stats.optimality_range().unwrap();
+    assert_eq!(opt_range.start(), opt_range.end());
 }
