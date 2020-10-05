@@ -43,6 +43,7 @@ use num_traits::Float;
 mod alg;
 
 pub use alg::{Solution, Stats};
+use alg::bnb::PreemptionHeuristic;
 
 // TODO: Allow T to be int type / any type that can be converted to f64
 /// Solver for `P || C_max` task scheduling problem. The setting is
@@ -87,8 +88,8 @@ pub use alg::{Solution, Stats};
 /// nodes to expand in the BnB tree are picked based on a heuristic function `h(N)`. The heuristic
 /// is a simple *admissible* estimate of the value of partial solution `N` obtained by scheduling
 /// remaining tasks as if the problem was `P |pmtn| C_max` - i.e. relaxes the problem by allowing
-/// task preemption. Moreover, in current implementation we allow indefinite number of pauses and
-/// resumes and tasks can have inner parallelism (more parts can run at the same time).
+/// task preemption. Moreover, in current implementation we allow just one interrupt per task and
+/// these two task splits cannot run at the same time.
 ///
 /// Additional optimization techniques include:
 ///  * Initial best solution `B` is found by LPT and the search keeps only nodes with `f(N) < f(B)`
@@ -134,7 +135,12 @@ impl Scheduler {
     {
         match self {
             Self::LPT => alg::lpt(processing_times, num_resources),
-            Self::BnB { timeout } => alg::bnb(processing_times, num_resources, *timeout),
+            Self::BnB { timeout } => alg::bnb(
+                processing_times,
+                num_resources,
+                *timeout,
+                &PreemptionHeuristic,
+            ),
         }
     }
 }

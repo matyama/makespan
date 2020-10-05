@@ -1,4 +1,4 @@
-use std::cmp::Ordering;
+use std::cmp::{max, Ordering};
 use std::collections::hash_map::DefaultHasher;
 use std::collections::{BinaryHeap, HashMap, HashSet};
 use std::convert::identity;
@@ -12,19 +12,20 @@ use ordered_float::OrderedFloat;
 use crate::alg::core::*;
 use crate::alg::lpt::greedy_schedule;
 
-// TODO: generalize over heuristic
 /// Search for optimal solution of `P || C_max` using Best-first BnB.
 ///
 /// The *heuristic* `h(N)` of a node `N` (partial solution) is the minimum makespan of a schedule
 /// that is initialized to the partial solution of `N` and completed by relaxing the problem and
 /// allowing task preemption (i.e. remaining tasks are scheduled as `P |pmtn| C_max`).
-pub(crate) fn bnb<T>(
+pub(crate) fn bnb<T, H>(
     processing_times: &[T],
     num_resources: usize,
     timeout: Option<Duration>,
+    heuristic: &H,
 ) -> Option<(Solution<T>, Stats<T>)>
 where
     T: Float + Default + Sum,
+    H: Heuristic<T>,
 {
     let start = SystemTime::now();
 
@@ -35,14 +36,13 @@ where
 
     let num_tasks = processing_times.len();
 
+    let remaining_times = processing_times;
     let mut processing_times = preprocess(processing_times);
 
     // pre-sorted set of tasks:
     //  1. LPT does it anyway
     //  2. Heuristic: larger tasks might prude the space sooner
     sort_by_processing_time(&mut processing_times);
-
-    let total_time = compute_total_time(&processing_times);
 
     // closed set will store just state hashes (ids) as unique identifiers to save memory
     let mut closed: HashSet<u64> = HashSet::new();
@@ -54,7 +54,7 @@ where
     stats.approx_factor = 1.;
 
     let mut queue = BinaryHeap::new();
-    queue.push(BnBNode::init(num_resources, total_time, best.value));
+    queue.push(BnBNode::init(num_resources, &remaining_times, best.value));
 
     // Best-first search using f(N) = h(N)
     while let Some(node) = queue.pop() {
@@ -91,7 +91,7 @@ where
             // branch on pruned resources
             for (resource, _) in node.get_pruned_resources().into_iter() {
                 // assign task -> resource
-                match node.expand(task, resource, best.value, &closed) {
+                match node.expand(task, resource, best.value, &closed, heuristic) {
                     BnBExpansion::NewNode(n) => {
                         closed.insert(n.id);
                         queue.push(n)
@@ -122,7 +122,7 @@ where
     id: u64,
     schedule: HashMap<usize, usize>,
     completion_times: Vec<OrderedFloat<T>>,
-    remaining_time: OrderedFloat<T>,
+    remaining_times: Vec<OrderedFloat<T>>,
     value: OrderedFloat<T>,
     h_value: OrderedFloat<T>,
 }
@@ -139,13 +139,13 @@ where
         hasher.finish()
     }
 
-    fn init(num_resources: usize, remaining_time: OrderedFloat<T>, h_value: T) -> Self {
+    fn init(num_resources: usize, remaining_times: &[T], h_value: T) -> Self {
         let completion_times = vec![OrderedFloat(T::zero()); num_resources];
         Self {
             id: Self::compute_hash(&completion_times),
             schedule: HashMap::new(), // TODO: with capacity `num_tasks`
             completion_times,
-            remaining_time,
+            remaining_times: remaining_times.iter().map(|t| OrderedFloat(*t)).collect(),
             value: OrderedFloat(T::zero()),
             h_value: OrderedFloat(h_value),
         }
@@ -160,7 +160,7 @@ where
             .collect::<Vec<(usize, OrderedFloat<T>)>>();
 
         // prune resource symmetries:
-        // if two resources have the same completion time, it's safely keep just one
+        // if two resources have the same completion time, it's safe to keep just one
         // because both trees are symmetric
         resource_completions.sort_by(|(_, x), (_, y)| x.cmp(y));
         resource_completions.dedup_by(|(_, x), (_, y)| x == y);
@@ -168,15 +168,17 @@ where
         resource_completions
     }
 
-    fn expand(
+    fn expand<H>(
         &self,
         task: (usize, OrderedFloat<T>),
         resource: usize,
         best_value: T,
         closed: &HashSet<u64>,
+        heuristic: &H,
     ) -> BnBExpansion<T>
     where
         T: Float + Default,
+        H: Heuristic<T>,
     {
         let (task, pt) = task;
         let best_value = OrderedFloat(best_value);
@@ -184,8 +186,6 @@ where
         // generate core of the new state (completion times & remaining_time)
         let mut completion_times = self.completion_times.to_vec();
         completion_times[resource] = OrderedFloat(completion_times[resource].into_inner() + pt.0);
-
-        let remaining_time = OrderedFloat(self.remaining_time.into_inner() - pt.into_inner());
 
         // evaluate objective fn for new schedule
         let value = *completion_times
@@ -202,7 +202,12 @@ where
                 return BnBExpansion::StateVisited;
             }
 
-            let h_value = heuristic(&completion_times, remaining_time);
+            let mut remaining_times = self.remaining_times.clone();
+            remaining_times[resource] =
+                OrderedFloat(remaining_times[resource].into_inner() - pt.into_inner());
+
+            let h_value = heuristic.eval(&completion_times, &remaining_times);
+
             return if h_value < best_value {
                 let mut schedule = self.schedule.clone();
                 schedule.insert(task, resource);
@@ -210,7 +215,7 @@ where
                     id,
                     schedule,
                     completion_times,
-                    remaining_time: OrderedFloat(remaining_time.into_inner()),
+                    remaining_times,
                     value,
                     h_value,
                 })
@@ -284,66 +289,103 @@ where
     }
 }
 
-// TODO: Implement better heuristic
-//  - allow task preemption but disallow parallel execution of task splits
-//  - such heuristic should be still admissible and dominate this one (because it's more restricted)
-fn heuristic<T>(
-    completion_times: &[OrderedFloat<T>],
-    remaining_time: OrderedFloat<T>,
-) -> OrderedFloat<T>
-where
-    T: Float + Default,
-{
-    if completion_times.is_empty() {
-        return OrderedFloat::default();
-    }
-
-    let mut completion_times = completion_times.to_vec();
-    let mut remaining_time = remaining_time.into_inner();
-
-    while OrderedFloat(remaining_time) > OrderedFloat(T::zero()) {
-        let any_ct = completion_times.first().expect("empty completion times");
-
-        if completion_times.iter().all(|ct| ct == any_ct) {
-            let fraction = remaining_time / T::from::<usize>(completion_times.len()).unwrap();
-            return OrderedFloat(any_ct.into_inner() + fraction);
-        }
-
-        let (a_min, min) = minimize(&completion_times, identity).unwrap();
-        let (a_max, _) = minimize(&completion_times, |ct| OrderedFloat(ct.neg())).unwrap();
-
-        let diff = completion_times[a_max].0 - min.0;
-        completion_times[a_min] = OrderedFloat(min.0 + diff);
-        remaining_time = remaining_time - diff;
-    }
-
-    completion_times.into_iter().max().unwrap()
+// TODO: It would be nice for the types to capture the fact that they always have size R
+pub(crate) trait Heuristic<T: Float + Default> {
+    fn eval(
+        &self,
+        completion_times: &[OrderedFloat<T>],
+        remaining_times: &[OrderedFloat<T>],
+    ) -> OrderedFloat<T>;
 }
 
-#[inline]
-fn compute_total_time<T>(processing_times: &[(usize, OrderedFloat<T>)]) -> OrderedFloat<T>
+pub(crate) struct PreemptionHeuristic;
+
+impl<T> Heuristic<T> for PreemptionHeuristic
 where
-    T: Float + Sum,
+    T: Float + Default + Sum,
 {
-    OrderedFloat(processing_times.iter().map(|(_, pt)| pt.into_inner()).sum())
+    fn eval(
+        &self,
+        completion_times: &[OrderedFloat<T>],
+        remaining_times: &[OrderedFloat<T>],
+    ) -> OrderedFloat<T> {
+        let num_resources = T::from::<usize>(completion_times.len()).unwrap();
+
+        let mut sum_remaining = T::zero();
+        let mut max_remaining = OrderedFloat(T::zero());
+
+        for &t in remaining_times.iter() {
+            sum_remaining = sum_remaining + t.into_inner();
+            max_remaining = max(max_remaining, t);
+        }
+
+        let sum_completed: T = completion_times.iter().map(|ct| ct.into_inner()).sum();
+        let ideally_parallelized = (sum_completed + sum_remaining) / num_resources;
+
+        max(max_remaining, OrderedFloat(ideally_parallelized))
+    }
+}
+
+pub(crate) struct FullPreemptionHeuristic;
+
+impl<T> Heuristic<T> for FullPreemptionHeuristic
+where
+    T: Float + Default + Sum,
+{
+    fn eval(
+        &self,
+        completion_times: &[OrderedFloat<T>],
+        remaining_times: &[OrderedFloat<T>],
+    ) -> OrderedFloat<T> {
+        if completion_times.is_empty() {
+            return OrderedFloat::default();
+        }
+
+        let mut completion_times = completion_times.to_vec();
+        let mut remaining_time = remaining_times.iter().map(|&t| t.into_inner()).sum();
+
+        while OrderedFloat(remaining_time) > OrderedFloat(T::zero()) {
+            let any_ct = completion_times.first().expect("empty completion times");
+
+            if completion_times.iter().all(|ct| ct == any_ct) {
+                let fraction = remaining_time / T::from::<usize>(completion_times.len()).unwrap();
+                return OrderedFloat(any_ct.into_inner() + fraction);
+            }
+
+            let (a_min, min) = minimize(&completion_times, identity).unwrap();
+            let (a_max, _) = minimize(&completion_times, |ct| OrderedFloat(ct.neg())).unwrap();
+
+            let diff = completion_times[a_max].0 - min.0;
+            completion_times[a_min] = OrderedFloat(min.0 + diff);
+            remaining_time = remaining_time - diff;
+        }
+
+        completion_times.into_iter().max().unwrap()
+    }
 }
 
 #[cfg(test)]
 mod test {
     use crate::alg::bnb;
+    use crate::alg::bnb::Heuristic;
     use ordered_float::OrderedFloat;
 
     #[test]
-    fn heuristic() {
+    fn fully_preemptive_heuristic() {
+        let h = bnb::FullPreemptionHeuristic;
+
         let cts = vec![OrderedFloat(1.0), OrderedFloat(2.0), OrderedFloat(1.5)];
 
         // no remaining time
-        assert_eq!(bnb::heuristic(&cts, OrderedFloat(0.)), OrderedFloat(2.));
+        let remaining_times = vec![OrderedFloat(0.), OrderedFloat(0.), OrderedFloat(0.)];
+        assert_eq!(h.eval(&cts, &remaining_times), OrderedFloat(2.));
 
         // some remaining time
-        assert_eq!(bnb::heuristic(&cts, OrderedFloat(4.5)), OrderedFloat(3.));
+        let remaining_times = vec![OrderedFloat(1.5), OrderedFloat(2.0), OrderedFloat(1.0)];
+        assert_eq!(h.eval(&cts, &remaining_times), OrderedFloat(3.));
 
         // another scenario with remaining time
-        assert_eq!(bnb::heuristic(&cts, OrderedFloat(0.5)), OrderedFloat(2.));
+        let remaining_times = vec![OrderedFloat(0.5), OrderedFloat(0.0), OrderedFloat(0.0)];
+        assert_eq!(h.eval(&cts, &remaining_times), OrderedFloat(2.));
     }
 }
