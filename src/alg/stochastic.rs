@@ -1,9 +1,12 @@
+use num_traits::Float;
+use ordered_float::OrderedFloat;
 use rand::distributions::uniform::SampleUniform;
 use rand::distributions::{Bernoulli, Uniform};
 use rand::prelude::*;
 use std::marker::PhantomData;
+use std::time::Duration;
 
-pub trait Mutate<T, D>
+pub(crate) trait Mutate<T, D>
 where
     T: SampleUniform + Clone,
     D: Distribution<T>,
@@ -23,7 +26,7 @@ where
 }
 
 #[derive(Debug, Clone)]
-pub struct VecMutation<T, D>
+pub(crate) struct VecMutation<T, D>
 where
     T: SampleUniform + Clone,
     D: Distribution<T>,
@@ -65,7 +68,7 @@ where
 }
 
 #[derive(Debug, Clone)]
-pub struct PointMutation<T, D>
+pub(crate) struct PointMutation<T, D>
 where
     T: SampleUniform + Clone,
     D: Distribution<T>,
@@ -103,9 +106,41 @@ where
     }
 }
 
+pub(crate) enum StopCondition<'a, Q: Float + Default> {
+    Iterations(usize),
+    Timeout(Duration),
+    Quality(Q),
+    Or(&'a StopCondition<'a, Q>, &'a StopCondition<'a, Q>),
+}
+
+pub(crate) trait Terminate {
+    type Q;
+    fn terminate(&self, iteration: usize, elapsed: &Duration, quality: Self::Q) -> bool;
+}
+
+impl<Q> Terminate for StopCondition<'_, Q>
+where
+    Q: Float + Default,
+{
+    type Q = Q;
+
+    fn terminate(&self, iteration: usize, elapsed: &Duration, quality: Self::Q) -> bool {
+        match self {
+            StopCondition::Iterations(max_iters) => iteration >= *max_iters,
+            StopCondition::Timeout(limit) => elapsed >= limit,
+            StopCondition::Quality(sufficient_quality) => {
+                OrderedFloat(quality) <= OrderedFloat(*sufficient_quality)
+            }
+            StopCondition::Or(a, b) => {
+                a.terminate(iteration, elapsed, quality) || b.terminate(iteration, elapsed, quality)
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
-    use crate::alg::stochastic::{Mutate, PointMutation, VecMutation};
+    use crate::alg::stochastic::{Mutate, PointMutation, StopCondition, Terminate, VecMutation};
     use rand::distributions::uniform::Uniform;
     use rand::distributions::Bernoulli;
     use rand::rngs::StdRng;
@@ -113,6 +148,7 @@ mod test {
     use std::collections::hash_map::RandomState;
     use std::collections::HashSet;
     use std::iter::FromIterator;
+    use std::time::Duration;
 
     const INDIVIDUAL: [i32; 3] = [1, 2, 3];
     const NUM_TRIALS: usize = 100;
@@ -149,5 +185,20 @@ mod test {
                 assert!(0 <= y && y <= 3);
             }
         }
+    }
+
+    #[test]
+    fn termination() {
+        let iter_cond = StopCondition::Iterations(1000);
+        let time_cond = StopCondition::Timeout(Duration::from_secs(60));
+        let quality_cond = StopCondition::Quality(10.);
+
+        let sub_cond = StopCondition::Or(&iter_cond, &time_cond);
+        let cond = StopCondition::Or(&quality_cond, &sub_cond);
+
+        assert!(!cond.terminate(0, &Duration::from_secs(10), 11.));
+        assert!(cond.terminate(1000, &Duration::from_secs(10), 11.));
+        assert!(cond.terminate(0, &Duration::from_secs(60), 11.));
+        assert!(cond.terminate(0, &Duration::from_secs(10), 9.));
     }
 }
