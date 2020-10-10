@@ -42,8 +42,8 @@ use num_traits::Float;
 
 mod alg;
 
-pub use alg::{Solution, Stats};
 use alg::bnb::PreemptionHeuristic;
+pub use alg::{Solution, Stats};
 
 // TODO: Allow T to be int type / any type that can be converted to f64
 /// Solver for `P || C_max` task scheduling problem. The setting is

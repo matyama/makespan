@@ -20,3 +20,4 @@ path = "src/lib.rs"
 [dependencies]
 num-traits = "0.2"
 ordered-float = "2.0"
+rand = "0.7"
