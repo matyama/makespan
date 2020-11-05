@@ -5,8 +5,7 @@ use std::time::Duration;
 
 use num_traits::Float;
 use ordered_float::OrderedFloat;
-
-// TODO: ideally impl something like Add for OrderedFloat<T>
+use std::iter::Sum;
 
 /// Data structure holding resulting `schedule` and objective `value`.
 ///
@@ -158,7 +157,7 @@ where
         if self.approx_factor.is_nan() {
             return None;
         }
-        let start = self.value / T::from::<f64>(self.approx_factor).unwrap();
+        let start = self.value / T::from(self.approx_factor)?;
         Some(start..=self.value)
     }
 }
@@ -198,7 +197,7 @@ where
         .iter()
         .enumerate()
         .map(|(x, pt)| (x, OrderedFloat(*pt)))
-        .collect::<Vec<(usize, OrderedFloat<T>)>>()
+        .collect()
 }
 
 /// Sort given slice of `(task, time)` pairs in place in non-increasing order of times.
@@ -208,4 +207,13 @@ where
     T: Float,
 {
     processing_times.sort_by(|(_, x), (_, y)| x.cmp(y).reverse());
+}
+
+/// Sum given slice of `OrderedFloat`s.
+#[inline]
+pub(crate) fn sum<T>(xs: &[OrderedFloat<T>]) -> OrderedFloat<T>
+where
+    T: Float + Default + Sum,
+{
+    xs.iter().map(|t| t.into_inner()).sum::<T>().into()
 }

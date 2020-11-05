@@ -74,7 +74,7 @@ where
             // complete solution
             if node.value.into_inner() < best.value {
                 // found new minimum
-                best = node.to_solution();
+                best = node.into_solution();
                 stats.value = best.value;
             }
         } else {
@@ -185,13 +185,13 @@ where
 
         // generate core of the new state (completion times & remaining_time)
         let mut completion_times = self.completion_times.to_vec();
-        completion_times[resource] = OrderedFloat(completion_times[resource].into_inner() + pt.0);
+        completion_times[resource] = completion_times[resource] + pt;
 
         // evaluate objective fn for new schedule
         let value = *completion_times
             .iter()
             .max()
-            .unwrap_or(&OrderedFloat(Float::infinity()));
+            .unwrap_or(&T::infinity().into());
 
         // prune sub-optimal
         if value < best_value || self.schedule.is_empty() {
@@ -203,8 +203,7 @@ where
             }
 
             let mut remaining_times = self.remaining_times.clone();
-            remaining_times[resource] =
-                OrderedFloat(remaining_times[resource].into_inner() - pt.into_inner());
+            remaining_times[resource] = remaining_times[resource] - pt;
 
             let h_value = heuristic.eval(&completion_times, &remaining_times);
 
@@ -227,11 +226,10 @@ where
         BnBExpansion::ValueSubOptimal
     }
 
-    fn to_solution(&self) -> Solution<T> {
-        // TODO: could this be done without copy?
+    fn into_solution(self) -> Solution<T> {
         let mut schedule = vec![0usize; self.schedule.len()];
-        for (task, resource) in self.schedule.iter() {
-            schedule[*task] = *resource;
+        for (task, resource) in self.schedule.into_iter() {
+            schedule[task] = resource;
         }
         Solution {
             schedule,
@@ -289,7 +287,6 @@ where
     }
 }
 
-// TODO: It would be nice for the types to capture the fact that they always have size R
 pub(crate) trait Heuristic<T: Float + Default> {
     fn eval(
         &self,
@@ -309,20 +306,21 @@ where
         completion_times: &[OrderedFloat<T>],
         remaining_times: &[OrderedFloat<T>],
     ) -> OrderedFloat<T> {
-        let num_resources = T::from::<usize>(completion_times.len()).unwrap();
+        let num_resources = T::from(completion_times.len())
+            .unwrap_or_else(T::one)
+            .into();
 
-        let mut sum_remaining = T::zero();
-        let mut max_remaining = OrderedFloat(T::zero());
+        let mut sum_remaining = OrderedFloat::default();
+        let mut max_remaining = OrderedFloat::default();
 
         for &t in remaining_times.iter() {
-            sum_remaining = sum_remaining + t.into_inner();
+            sum_remaining = sum_remaining + t;
             max_remaining = max(max_remaining, t);
         }
 
-        let sum_completed: T = completion_times.iter().map(|ct| ct.into_inner()).sum();
-        let ideally_parallelized = (sum_completed + sum_remaining) / num_resources;
+        let ideally_parallelized = (sum(completion_times) + sum_remaining) / num_resources;
 
-        max(max_remaining, OrderedFloat(ideally_parallelized))
+        max(max_remaining, ideally_parallelized)
     }
 }
 
@@ -342,25 +340,27 @@ where
         }
 
         let mut completion_times = completion_times.to_vec();
-        let mut remaining_time = remaining_times.iter().map(|&t| t.into_inner()).sum();
+        let mut remaining_time = sum(remaining_times);
 
-        while OrderedFloat(remaining_time) > OrderedFloat(T::zero()) {
+        while remaining_time > OrderedFloat::default() {
             let any_ct = completion_times.first().expect("empty completion times");
 
             if completion_times.iter().all(|ct| ct == any_ct) {
-                let fraction = remaining_time / T::from::<usize>(completion_times.len()).unwrap();
-                return OrderedFloat(any_ct.into_inner() + fraction);
+                let num_resources = T::from(completion_times.len())
+                    .unwrap_or_else(T::one)
+                    .into();
+                return *any_ct + remaining_time / num_resources;
             }
 
             let (a_min, min) = minimize(&completion_times, identity).unwrap();
-            let (a_max, _) = minimize(&completion_times, |ct| OrderedFloat(ct.neg())).unwrap();
+            let (a_max, _) = minimize(&completion_times, |ct| ct.neg().into()).unwrap();
 
-            let diff = completion_times[a_max].0 - min.0;
-            completion_times[a_min] = OrderedFloat(min.0 + diff);
+            let diff = completion_times[a_max] - min;
+            completion_times[a_min] = min + diff;
             remaining_time = remaining_time - diff;
         }
 
-        completion_times.into_iter().max().unwrap()
+        completion_times.into_iter().max().unwrap_or_default()
     }
 }
 

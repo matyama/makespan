@@ -58,7 +58,7 @@ where
 
     // greedily schedule each task to a resource that will have the smallest completion time - O(n)
     for (task, pt) in processing_times.iter() {
-        let min = minimize(&completion_times, |ct| OrderedFloat(*ct + **pt));
+        let min = minimize(&completion_times, |ct| ct + *pt);
         if let Some((min_resource, min_completion)) = min {
             completion_times[min_resource] = min_completion;
             task_dist[min_resource] += 1;
@@ -68,14 +68,13 @@ where
 
     // compute final objective value (C_max) - O(R)
     let value = completion_times.into_iter().max().unwrap_or_default();
-    // let value = completion_times.into_iter().max_by(cmp_f64).unwrap_or(0f64);
 
     // compute approximation factor r(LPT) - O(R)
     let approx_factor = task_dist
         .into_iter()
         .max()
         .map(|m| 1. + (1. / m as f64) + (1. / (m * num_resources as u32) as f64))
-        .unwrap_or(1f64);
+        .unwrap_or(1.);
 
     let solution = Solution {
         schedule,
