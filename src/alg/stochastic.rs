@@ -41,6 +41,7 @@ where
     T: SampleUniform + Clone,
     D: Distribution<T>,
 {
+    #[allow(dead_code)]
     fn new(tweak_dist: Bernoulli, range_dist: D) -> VecMutation<T, D> {
         VecMutation {
             tweak_dist,
@@ -59,9 +60,9 @@ where
     where
         R: Rng + ?Sized,
     {
-        for i in 0..xs.len() {
+        for x in xs {
             if self.tweak_dist.sample(rng) {
-                xs[i] = self.range_dist.sample(rng);
+                *x = self.range_dist.sample(rng);
             }
         }
     }
@@ -83,6 +84,7 @@ where
     T: SampleUniform + Clone,
     D: Distribution<T>,
 {
+    #[allow(dead_code)]
     fn new(range_dist: D, n: usize) -> PointMutation<T, D> {
         PointMutation {
             range_dist,
@@ -106,6 +108,7 @@ where
     }
 }
 
+#[allow(dead_code)]
 pub(crate) enum StopCondition<'a, Q: Float + Default> {
     Iterations(usize),
     Timeout(Duration),
