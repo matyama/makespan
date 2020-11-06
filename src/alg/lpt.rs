@@ -1,7 +1,6 @@
 use std::time::SystemTime;
 
 use num_traits::Float;
-use ordered_float::OrderedFloat;
 use voracious_radix_sort::RadixSort;
 
 use crate::alg::core::Task;
@@ -41,21 +40,18 @@ where
 /// Assume that `tasks` are given as instances of `Task` and are
 /// already sorted by processing times. Then this function sequentially assigns tasks to resources
 /// while minimizing maximum completion time (makespan).
-pub(crate) fn greedy_schedule<T>(
+pub(crate) fn greedy_schedule<T: Float + Default>(
     tasks: &[Task<T>],
     num_resources: usize,
     start: SystemTime,
-) -> Option<(Solution<T>, Stats<T>)>
-where
-    T: Float + Default + Send + Sync,
-{
+) -> Option<(Solution<T>, Stats<T>)> {
     if tasks.is_empty() || num_resources == 0 {
         return None;
     }
 
     let num_tasks = tasks.len();
 
-    let mut completion_times: Vec<OrderedFloat<T>> = vec![OrderedFloat::default(); num_resources];
+    let mut completion_times: Vec<T> = vec![T::default(); num_resources];
     let mut task_dist = vec![0u32; num_resources];
     let mut schedule = vec![0usize; num_tasks];
 
@@ -70,29 +66,29 @@ where
     }
 
     // compute final objective value (C_max) - O(R)
-    let value = completion_times.into_iter().max().unwrap_or_default();
+    // TODO: handle unwrap in cleaner way
+    // safety: if processing times don't contain NaNs or infinities, completion times can't either
+    let value = completion_times
+        .into_iter()
+        .max_by(|x, y| x.partial_cmp(y).unwrap())
+        .unwrap_or_default();
 
     // compute approximation factor r(LPT) - O(R)
     let approx_factor = task_dist
         .into_iter()
         .max()
         .map(|m| 1. + (1. / m as f64) + (1. / (m * num_resources as u32) as f64))
-        .unwrap_or(1.);
+        .unwrap_or(1.); // TODO: proper error handling with result
 
     let solution = Solution {
         schedule,
-        value: value.0,
+        value,
         num_resources,
     };
 
+    // TODO: proper error handling with result
     let elapsed = start.elapsed().expect("Failed to get elapsed system time.");
-    let stats = Stats::approx(
-        value.into_inner(),
-        approx_factor,
-        num_resources,
-        num_tasks,
-        elapsed,
-    );
+    let stats = Stats::approx(value, approx_factor, num_resources, num_tasks, elapsed);
 
     Some((solution, stats))
 }

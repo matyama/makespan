@@ -50,3 +50,22 @@ fn non_trivial_schedule() {
 
     assert!(!stats.proved_optimal);
 }
+
+#[test]
+fn test_subopt_instance() {
+    fn subopt_instance(num_resources: usize) -> Vec<f64> {
+        let mut pts = vec![0usize; 2 * num_resources + 1];
+        let mut pt = 2 * num_resources - 1;
+        while pt >= num_resources {
+            pts.push(pt);
+            pts.push(pt);
+            pt -= 1;
+        }
+        pts.push(num_resources);
+        pts.into_iter().map(|pt| pt as f64).collect()
+    }
+
+    let res = 100;
+    let pts = subopt_instance(res);
+    let _ = SCHEDULER.schedule(&pts, res).unwrap();
+}

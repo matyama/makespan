@@ -14,41 +14,34 @@ use voracious_radix_sort::Radixable;
 /// A task consist of two components:
 ///  - unique ID
 ///  - processing time
-#[derive(Copy, Clone, Debug)]
-pub(crate) struct Task<T: Float + Default + Send + Sync> {
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub(crate) struct Task<T: Float> {
     /// Unique task ID
     pub(crate) id: usize,
     /// Processing time (should be a positive float)
-    pub(crate) pt: OrderedFloat<T>,
+    pub(crate) pt: T,
 }
 
-impl<T: Float + Default + Send + Sync> PartialOrd for Task<T> {
+impl<T: Float> Task<T> {
+    pub(crate) fn ord_pt(&self) -> OrderedFloat<T> {
+        OrderedFloat(self.pt)
+    }
+}
+
+impl<T: Float> PartialOrd for Task<T> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl<T: Float + Default + Send + Sync> Ord for Task<T> {
-    fn cmp(&self, other: &Self) -> Ordering {
         // reverse the order to have tasks sorted in descending processing times (LPT & heuristics)
-        self.pt.cmp(&other.pt).reverse()
+        self.pt.partial_cmp(&other.pt).map(Ordering::reverse)
     }
 }
 
-impl<T: Float + Default + Send + Sync> PartialEq for Task<T> {
-    fn eq(&self, other: &Self) -> bool {
-        self.id == other.id && self.pt == other.pt
-    }
-}
-
-impl<T: Float + Default + Send + Sync> Eq for Task<T> {}
-
-impl<T: Float + Default + Send + Sync> Radixable<f64> for Task<T> {
+impl<T: Float + Send + Sync> Radixable<f64> for Task<T> {
     type Key = f64;
     #[inline]
     fn key(&self) -> Self::Key {
         // TODO: handle unwrap safely
-        self.pt.to_f64().unwrap()
+        // TODO: this is probably quite slow
+        self.pt.to_f64().expect("Cannot convert to f64")
     }
 }
 
@@ -209,10 +202,10 @@ where
 
 /// Find `(argmin_x f(x), min_x f(x))` of function `f` on set `xs` or `None` if `xs` is empty.
 /// If `xs` is a multi-set and the minimum is not strict, item with the lowest index is returned.
-pub(crate) fn minimize<T, F>(xs: &[OrderedFloat<T>], f: F) -> Option<(usize, OrderedFloat<T>)>
+pub(crate) fn minimize<T, F>(xs: &[T], f: F) -> Option<(usize, T)>
 where
-    T: Float,
-    F: Fn(OrderedFloat<T>) -> OrderedFloat<T>,
+    T: PartialOrd + Copy + Clone,
+    F: Fn(T) -> T,
 {
     if xs.is_empty() {
         return None;
@@ -221,8 +214,8 @@ where
     let mut arg_min = 0;
     let mut min = f(xs[arg_min]);
 
-    for (i, x) in xs.iter().enumerate() {
-        let fx = f(*x);
+    for (i, &x) in xs.iter().enumerate() {
+        let fx = f(x);
         if fx < min {
             arg_min = i;
             min = fx;
@@ -234,14 +227,11 @@ where
 /// Copy `processing_times` to a vector of pairs `(i, pt)` where `i` is the sequential index and
 /// `pt` is original processing time wrapped into [OrderedFloat](struct.OrderedFloat.html).
 #[inline]
-pub(crate) fn preprocess<T>(processing_times: &[T]) -> Vec<Task<T>>
-where
-    T: Float + Default + Send + Sync,
-{
+pub(crate) fn preprocess<T: Float>(processing_times: &[T]) -> Vec<Task<T>> {
     processing_times
         .iter()
         .enumerate()
-        .map(|(id, &pt)| Task { id, pt: pt.into() })
+        .map(|(id, &pt)| Task { id, pt })
         .collect()
 }
 

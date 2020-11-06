@@ -185,7 +185,7 @@ where
 
         // generate core of the new state (completion times & remaining_time)
         let mut completion_times = self.completion_times.to_vec();
-        completion_times[resource] = completion_times[resource] + task.pt;
+        completion_times[resource] = completion_times[resource] + task.ord_pt();
 
         // evaluate objective fn for new schedule
         let value = *completion_times
@@ -203,7 +203,7 @@ where
             }
 
             let mut remaining_times = self.remaining_times.clone();
-            remaining_times[resource] = remaining_times[resource] - task.pt;
+            remaining_times[resource] = remaining_times[resource] - task.ord_pt();
 
             let h_value = heuristic.eval(&completion_times, &remaining_times);
 
