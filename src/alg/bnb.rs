@@ -84,7 +84,7 @@ where
             // select next task to schedule
             // heuristic: select the longest task that restricts the space the most
             //  - keep in mind that `processing_times` are already pre-sorted
-            let task = *tasks
+            let task = tasks
                 .iter()
                 .find(|Task { id, .. }| !node.schedule.contains_key(id))
                 .expect("No task left yet solution was NOT complete!"); // TODO: return Result
@@ -92,7 +92,7 @@ where
             // branch on pruned resources
             for (resource, _) in node.get_pruned_resources().into_iter() {
                 // assign task -> resource
-                match node.expand(&task, resource, best.value, &closed, heuristic) {
+                match node.expand(task, resource, best.value, &closed, heuristic) {
                     BnBExpansion::NewNode(n) => {
                         closed.insert(n.id);
                         queue.push(n)
