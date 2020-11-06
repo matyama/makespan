@@ -2,12 +2,15 @@ use std::time::SystemTime;
 
 use num_traits::Float;
 use ordered_float::OrderedFloat;
+use voracious_radix_sort::RadixSort;
 
+use crate::alg::core::Task;
 use crate::alg::core::*;
 
 /// Search for approx. solution of `P || C_max` using LPT (Longest Processing Time First) algorithm.
 ///
-/// Asymptotic runtime is `O(n*log(n))` time where `n` is the number of non-preemptive tasks.
+/// Asymptotic runtime is `O(n)` time where `n` is the number of non-preemptive tasks (note: this
+/// implementation uses a *RadixSort* to sort tasks in linear time).
 ///
 /// Approximation factor is `r(LPT) = 1 + 1/k − 1/kR` where
 ///  * `R` is no. resources (`R << n`)
@@ -17,7 +20,7 @@ pub(crate) fn lpt<T>(
     num_resources: usize,
 ) -> Option<(Solution<T>, Stats<T>)>
 where
-    T: Float + Default,
+    T: Float + Default + Send + Sync,
 {
     if processing_times.is_empty() || num_resources == 0 {
         return None;
@@ -25,44 +28,44 @@ where
 
     let start = SystemTime::now();
 
-    // collect pairs (task, processing time) to preserve original tasks - O(n)
-    let mut processing_times = preprocess(processing_times);
+    // collect tasks {id, processing time} to preserve original order - O(n)
+    let mut tasks = preprocess(processing_times);
 
-    // sort tasks in non-increasing processing times - O(n * log(n))
-    sort_by_processing_time(&mut processing_times);
+    // sort tasks in non-increasing processing times - O(n)
+    tasks.voracious_sort();
 
     // Assign sorted tasks in greedy way - O(n)
-    greedy_schedule(&processing_times, num_resources, start)
+    greedy_schedule(&tasks, num_resources, start)
 }
 
-/// Assume that `processing_times` are given as pairs `(task, time)` and are
+/// Assume that `tasks` are given as instances of `Task` and are
 /// already sorted by processing times. Then this function sequentially assigns tasks to resources
 /// while minimizing maximum completion time (makespan).
 pub(crate) fn greedy_schedule<T>(
-    processing_times: &[(usize, OrderedFloat<T>)],
+    tasks: &[Task<T>],
     num_resources: usize,
     start: SystemTime,
 ) -> Option<(Solution<T>, Stats<T>)>
 where
-    T: Float + Default,
+    T: Float + Default + Send + Sync,
 {
-    if processing_times.is_empty() || num_resources == 0 {
+    if tasks.is_empty() || num_resources == 0 {
         return None;
     }
 
-    let num_tasks = processing_times.len();
+    let num_tasks = tasks.len();
 
     let mut completion_times: Vec<OrderedFloat<T>> = vec![OrderedFloat::default(); num_resources];
     let mut task_dist = vec![0u32; num_resources];
     let mut schedule = vec![0usize; num_tasks];
 
     // greedily schedule each task to a resource that will have the smallest completion time - O(n)
-    for (task, pt) in processing_times.iter() {
-        let min = minimize(&completion_times, |ct| ct + *pt);
+    for task in tasks.iter() {
+        let min = minimize(&completion_times, |ct| ct + task.pt);
         if let Some((min_resource, min_completion)) = min {
             completion_times[min_resource] = min_completion;
             task_dist[min_resource] += 1;
-            schedule[*task] = min_resource;
+            schedule[task.id] = min_resource;
         }
     }
 

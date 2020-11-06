@@ -27,8 +27,10 @@ fn non_trivial_schedule() {
     let pts = vec![5., 5., 4., 4., 3., 3., 3.];
     let (solution, stats) = SCHEDULER.schedule(&pts, 3).unwrap();
 
-    // schedule (LPT with stable sort is deterministic)
-    assert_eq!(solution.schedule, vec![0, 1, 2, 2, 0, 1, 0]);
+    // task distribution is correct (except symmetries, hence the sort)
+    let mut dist = solution.task_loads();
+    dist.sort();
+    assert_eq!(dist, vec![2, 2, 3]);
 
     // schedule contains all resources from input range
     let mut resources = solution.schedule.to_vec();
