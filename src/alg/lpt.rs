@@ -5,6 +5,7 @@ use voracious_radix_sort::RadixSort;
 
 use crate::alg::core::Task;
 use crate::alg::core::*;
+use ordered_float::OrderedFloat;
 
 /// Search for approx. solution of `P || C_max` using LPT (Longest Processing Time First) algorithm.
 ///
@@ -32,6 +33,7 @@ where
 
     // sort tasks in non-increasing processing times - O(n)
     tasks.voracious_sort();
+    tasks.reverse();
 
     // Assign sorted tasks in greedy way - O(n)
     greedy_schedule(&tasks, num_resources, start)
@@ -51,7 +53,7 @@ pub(crate) fn greedy_schedule<T: Float + Default>(
 
     let num_tasks = tasks.len();
 
-    let mut completion_times: Vec<T> = vec![T::default(); num_resources];
+    let mut completion_times: Vec<OrderedFloat<T>> = vec![OrderedFloat::default(); num_resources];
     let mut task_dist = vec![0u32; num_resources];
     let mut schedule = vec![0usize; num_tasks];
 
@@ -66,12 +68,12 @@ pub(crate) fn greedy_schedule<T: Float + Default>(
     }
 
     // compute final objective value (C_max) - O(R)
-    // TODO: handle unwrap in cleaner way
-    // safety: if processing times don't contain NaNs or infinities, completion times can't either
+    // TODO: handle unwrap in cleaner way (Result)
     let value = completion_times
         .into_iter()
-        .max_by(|x, y| x.partial_cmp(y).unwrap())
-        .unwrap_or_default();
+        .max()
+        .unwrap_or_default()
+        .into_inner();
 
     // compute approximation factor r(LPT) - O(R)
     let approx_factor = task_dist

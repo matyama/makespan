@@ -19,19 +19,20 @@ pub(crate) struct Task<T: Float> {
     /// Unique task ID
     pub(crate) id: usize,
     /// Processing time (should be a positive float)
-    pub(crate) pt: T,
+    pub(crate) pt: OrderedFloat<T>,
 }
 
-impl<T: Float> Task<T> {
-    pub(crate) fn ord_pt(&self) -> OrderedFloat<T> {
-        OrderedFloat(self.pt)
-    }
-}
+impl<T: Float> Eq for Task<T> {}
 
 impl<T: Float> PartialOrd for Task<T> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        // reverse the order to have tasks sorted in descending processing times (LPT & heuristics)
-        self.pt.partial_cmp(&other.pt).map(Ordering::reverse)
+        Some(self.cmp(other))
+    }
+}
+
+impl<T: Float> Ord for Task<T> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.pt.cmp(&other.pt)
     }
 }
 
@@ -231,7 +232,7 @@ pub(crate) fn preprocess<T: Float>(processing_times: &[T]) -> Vec<Task<T>> {
     processing_times
         .iter()
         .enumerate()
-        .map(|(id, &pt)| Task { id, pt })
+        .map(|(id, &pt)| Task { id, pt: pt.into() })
         .collect()
 }
 

@@ -1,4 +1,5 @@
 use makespan::Scheduler;
+use rand::prelude::*;
 
 const SCHEDULER: Scheduler = Scheduler::LPT;
 
@@ -56,16 +57,22 @@ fn test_subopt_instance() {
     fn subopt_instance(num_resources: usize) -> Vec<f64> {
         let mut pts = vec![0usize; 2 * num_resources + 1];
         let mut pt = 2 * num_resources - 1;
+        let mut i = 0;
         while pt >= num_resources {
-            pts.push(pt);
-            pts.push(pt);
+            pts[i] = pt;
+            pts[i + 1] = pt;
             pt -= 1;
+            i += 2
         }
-        pts.push(num_resources);
+        pts[i] = num_resources;
         pts.into_iter().map(|pt| pt as f64).collect()
     }
 
-    let res = 100;
-    let pts = subopt_instance(res);
+    let mut rng = rand::thread_rng();
+
+    let res = 1_000;
+    let mut pts = subopt_instance(res);
+    pts.shuffle(&mut rng);
+
     let _ = SCHEDULER.schedule(&pts, res).unwrap();
 }

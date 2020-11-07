@@ -44,6 +44,7 @@ where
     //  1. LPT does it anyway
     //  2. Heuristic: larger tasks might prude the space sooner
     tasks.voracious_sort();
+    tasks.reverse();
 
     // closed set will store just state hashes (ids) as unique identifiers to save memory
     let mut closed: HashSet<u64> = HashSet::new();
@@ -185,7 +186,7 @@ where
 
         // generate core of the new state (completion times & remaining_time)
         let mut completion_times = self.completion_times.to_vec();
-        completion_times[resource] = completion_times[resource] + task.ord_pt();
+        completion_times[resource] = completion_times[resource] + task.pt;
 
         // evaluate objective fn for new schedule
         let value = *completion_times
@@ -203,7 +204,7 @@ where
             }
 
             let mut remaining_times = self.remaining_times.clone();
-            remaining_times[resource] = remaining_times[resource] - task.ord_pt();
+            remaining_times[resource] = remaining_times[resource] - task.pt;
 
             let h_value = heuristic.eval(&completion_times, &remaining_times);
 
