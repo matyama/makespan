@@ -1,4 +1,5 @@
 use makespan::Scheduler;
+use rand::prelude::*;
 
 const SCHEDULER: Scheduler = Scheduler::LPT;
 
@@ -27,8 +28,10 @@ fn non_trivial_schedule() {
     let pts = vec![5., 5., 4., 4., 3., 3., 3.];
     let (solution, stats) = SCHEDULER.schedule(&pts, 3).unwrap();
 
-    // schedule (LPT with stable sort is deterministic)
-    assert_eq!(solution.schedule, vec![0, 1, 2, 2, 0, 1, 0]);
+    // task distribution is correct (except symmetries, hence the sort)
+    let mut dist = solution.task_loads();
+    dist.sort();
+    assert_eq!(dist, vec![2, 2, 3]);
 
     // schedule contains all resources from input range
     let mut resources = solution.schedule.to_vec();
@@ -47,4 +50,29 @@ fn non_trivial_schedule() {
     assert_eq!(stats.approx_factor, 1.4444444444444444);
 
     assert!(!stats.proved_optimal);
+}
+
+#[test]
+fn test_subopt_instance() {
+    fn subopt_instance(num_resources: usize) -> Vec<f64> {
+        let mut pts = vec![0usize; 2 * num_resources + 1];
+        let mut pt = 2 * num_resources - 1;
+        let mut i = 0;
+        while pt >= num_resources {
+            pts[i] = pt;
+            pts[i + 1] = pt;
+            pt -= 1;
+            i += 2
+        }
+        pts[i] = num_resources;
+        pts.into_iter().map(|pt| pt as f64).collect()
+    }
+
+    let mut rng = rand::thread_rng();
+
+    let res = 1_000;
+    let mut pts = subopt_instance(res);
+    pts.shuffle(&mut rng);
+
+    let _ = SCHEDULER.schedule(&pts, res).unwrap();
 }

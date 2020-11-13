@@ -119,6 +119,7 @@ pub enum Scheduler {
     BnB { timeout: Option<Duration> },
 }
 
+// TODO: type alias T or better add custom one to type check that processing time is positive
 impl Scheduler {
     /// Run scheduling algorithm determined by this instance for given task `processing_times` and
     /// number of available resources (`num_resources`).
@@ -131,7 +132,7 @@ impl Scheduler {
         num_resources: usize,
     ) -> Option<(Solution<T>, Stats<T>)>
     where
-        T: Float + Default + Sum,
+        T: Float + Default + Sum + Send + Sync,
     {
         match self {
             Self::LPT => alg::lpt(processing_times, num_resources),

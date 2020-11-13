@@ -8,6 +8,7 @@ use std::time::{Duration, SystemTime};
 
 use num_traits::Float;
 use ordered_float::OrderedFloat;
+use voracious_radix_sort::RadixSort;
 
 use crate::alg::core::*;
 use crate::alg::lpt::greedy_schedule;
@@ -24,7 +25,7 @@ pub(crate) fn bnb<T, H>(
     heuristic: &H,
 ) -> Option<(Solution<T>, Stats<T>)>
 where
-    T: Float + Default + Sum,
+    T: Float + Default + Sum + Send + Sync,
     H: Heuristic<T>,
 {
     let start = SystemTime::now();
@@ -37,18 +38,19 @@ where
     let num_tasks = processing_times.len();
 
     let remaining_times = processing_times;
-    let mut processing_times = preprocess(processing_times);
+    let mut tasks = preprocess(processing_times);
 
     // pre-sorted set of tasks:
     //  1. LPT does it anyway
     //  2. Heuristic: larger tasks might prude the space sooner
-    sort_by_processing_time(&mut processing_times);
+    tasks.voracious_sort();
+    tasks.reverse();
 
     // closed set will store just state hashes (ids) as unique identifiers to save memory
     let mut closed: HashSet<u64> = HashSet::new();
 
     // run LPT to get lower bound (LB) on the solution
-    let (mut best, mut stats) = greedy_schedule(&processing_times, num_resources, start)?;
+    let (mut best, mut stats) = greedy_schedule(&tasks, num_resources, start)?;
     // assume we can find optimal solution in time and adjust later if not
     stats.proved_optimal = true;
     stats.approx_factor = 1.;
@@ -83,10 +85,10 @@ where
             // select next task to schedule
             // heuristic: select the longest task that restricts the space the most
             //  - keep in mind that `processing_times` are already pre-sorted
-            let task = *processing_times
+            let task = tasks
                 .iter()
-                .find(|(task, _)| !node.schedule.contains_key(task))
-                .expect("No task left yet solution was NOT complete!");
+                .find(|Task { id, .. }| !node.schedule.contains_key(id))
+                .expect("No task left yet solution was NOT complete!"); // TODO: return Result
 
             // branch on pruned resources
             for (resource, _) in node.get_pruned_resources().into_iter() {
@@ -108,7 +110,7 @@ where
     Some((best, stats))
 }
 
-enum BnBExpansion<T: Float + Default> {
+enum BnBExpansion<T: Float + Default + Send + Sync> {
     NewNode(BnBNode<T>),
     ValueSubOptimal,
     HeuristicSubOptimal,
@@ -117,7 +119,7 @@ enum BnBExpansion<T: Float + Default> {
 
 struct BnBNode<T>
 where
-    T: Float + Default,
+    T: Float + Default + Send + Sync,
 {
     id: u64,
     schedule: HashMap<usize, usize>,
@@ -129,7 +131,7 @@ where
 
 impl<T> BnBNode<T>
 where
-    T: Float + Default,
+    T: Float + Default + Send + Sync,
 {
     fn compute_hash(completion_times: &[OrderedFloat<T>]) -> u64 {
         let mut hasher = DefaultHasher::new();
@@ -170,22 +172,21 @@ where
 
     fn expand<H>(
         &self,
-        task: (usize, OrderedFloat<T>),
+        task: &Task<T>,
         resource: usize,
         best_value: T,
         closed: &HashSet<u64>,
         heuristic: &H,
     ) -> BnBExpansion<T>
     where
-        T: Float + Default,
+        T: Float + Default + Send + Sync,
         H: Heuristic<T>,
     {
-        let (task, pt) = task;
         let best_value = OrderedFloat(best_value);
 
         // generate core of the new state (completion times & remaining_time)
         let mut completion_times = self.completion_times.to_vec();
-        completion_times[resource] = completion_times[resource] + pt;
+        completion_times[resource] = completion_times[resource] + task.pt;
 
         // evaluate objective fn for new schedule
         let value = *completion_times
@@ -203,13 +204,13 @@ where
             }
 
             let mut remaining_times = self.remaining_times.clone();
-            remaining_times[resource] = remaining_times[resource] - pt;
+            remaining_times[resource] = remaining_times[resource] - task.pt;
 
             let h_value = heuristic.eval(&completion_times, &remaining_times);
 
             return if h_value < best_value {
                 let mut schedule = self.schedule.clone();
-                schedule.insert(task, resource);
+                schedule.insert(task.id, resource);
                 BnBExpansion::NewNode(BnBNode {
                     id,
                     schedule,
@@ -241,7 +242,7 @@ where
 
 impl<T> Hash for BnBNode<T>
 where
-    T: Float + Default,
+    T: Float + Default + Send + Sync,
 {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.id.hash(state);
@@ -259,18 +260,18 @@ where
 
 impl<T> PartialEq for BnBNode<T>
 where
-    T: Float + Default,
+    T: Float + Default + Send + Sync,
 {
     fn eq(&self, other: &Self) -> bool {
         self.id == other.id
     }
 }
 
-impl<T> Eq for BnBNode<T> where T: Float + Default {}
+impl<T> Eq for BnBNode<T> where T: Float + Default + Send + Sync {}
 
 impl<T> PartialOrd for BnBNode<T>
 where
-    T: Float + Default,
+    T: Float + Default + Send + Sync,
 {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
@@ -279,7 +280,7 @@ where
 
 impl<T> Ord for BnBNode<T>
 where
-    T: Float + Default,
+    T: Float + Default + Send + Sync,
 {
     fn cmp(&self, other: &BnBNode<T>) -> Ordering {
         // reverse because BnB uses a max-heap and our objective is to minimize
@@ -287,7 +288,7 @@ where
     }
 }
 
-pub(crate) trait Heuristic<T: Float + Default> {
+pub(crate) trait Heuristic<T: Float + Default + Send + Sync> {
     fn eval(
         &self,
         completion_times: &[OrderedFloat<T>],
@@ -299,7 +300,7 @@ pub(crate) struct PreemptionHeuristic;
 
 impl<T> Heuristic<T> for PreemptionHeuristic
 where
-    T: Float + Default + Sum,
+    T: Float + Default + Sum + Send + Sync,
 {
     fn eval(
         &self,
@@ -328,7 +329,7 @@ pub(crate) struct FullPreemptionHeuristic;
 
 impl<T> Heuristic<T> for FullPreemptionHeuristic
 where
-    T: Float + Default + Sum,
+    T: Float + Default + Sum + Send + Sync,
 {
     fn eval(
         &self,

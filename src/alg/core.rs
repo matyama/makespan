@@ -1,11 +1,50 @@
+use std::cmp::Ordering;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
+use std::iter::Sum;
 use std::ops::RangeInclusive;
 use std::time::Duration;
 
 use num_traits::Float;
 use ordered_float::OrderedFloat;
-use std::iter::Sum;
+use voracious_radix_sort::Radixable;
+
+/// Data structure representing an input scheduling task
+///
+/// A task consist of two components:
+///  - unique ID
+///  - processing time
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub(crate) struct Task<T: Float> {
+    /// Unique task ID
+    pub(crate) id: usize,
+    /// Processing time (should be a positive float)
+    pub(crate) pt: OrderedFloat<T>,
+}
+
+impl<T: Float> Eq for Task<T> {}
+
+impl<T: Float> PartialOrd for Task<T> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl<T: Float> Ord for Task<T> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.pt.cmp(&other.pt)
+    }
+}
+
+impl<T: Float + Send + Sync> Radixable<f64> for Task<T> {
+    type Key = f64;
+    #[inline]
+    fn key(&self) -> Self::Key {
+        // TODO: handle unwrap safely
+        // TODO: this is probably quite slow
+        self.pt.to_f64().expect("Cannot convert to f64")
+    }
+}
 
 /// Data structure holding resulting `schedule` and objective `value`.
 ///
@@ -164,10 +203,10 @@ where
 
 /// Find `(argmin_x f(x), min_x f(x))` of function `f` on set `xs` or `None` if `xs` is empty.
 /// If `xs` is a multi-set and the minimum is not strict, item with the lowest index is returned.
-pub(crate) fn minimize<T, F>(xs: &[OrderedFloat<T>], f: F) -> Option<(usize, OrderedFloat<T>)>
+pub(crate) fn minimize<T, F>(xs: &[T], f: F) -> Option<(usize, T)>
 where
-    T: Float,
-    F: Fn(OrderedFloat<T>) -> OrderedFloat<T>,
+    T: PartialOrd + Copy + Clone,
+    F: Fn(T) -> T,
 {
     if xs.is_empty() {
         return None;
@@ -176,8 +215,8 @@ where
     let mut arg_min = 0;
     let mut min = f(xs[arg_min]);
 
-    for (i, x) in xs.iter().enumerate() {
-        let fx = f(*x);
+    for (i, &x) in xs.iter().enumerate() {
+        let fx = f(x);
         if fx < min {
             arg_min = i;
             min = fx;
@@ -189,24 +228,12 @@ where
 /// Copy `processing_times` to a vector of pairs `(i, pt)` where `i` is the sequential index and
 /// `pt` is original processing time wrapped into [OrderedFloat](struct.OrderedFloat.html).
 #[inline]
-pub(crate) fn preprocess<T>(processing_times: &[T]) -> Vec<(usize, OrderedFloat<T>)>
-where
-    T: Float,
-{
+pub(crate) fn preprocess<T: Float>(processing_times: &[T]) -> Vec<Task<T>> {
     processing_times
         .iter()
         .enumerate()
-        .map(|(x, pt)| (x, OrderedFloat(*pt)))
+        .map(|(id, &pt)| Task { id, pt: pt.into() })
         .collect()
-}
-
-/// Sort given slice of `(task, time)` pairs in place in non-increasing order of times.
-#[inline]
-pub(crate) fn sort_by_processing_time<T>(processing_times: &mut [(usize, OrderedFloat<T>)])
-where
-    T: Float,
-{
-    processing_times.sort_by(|(_, x), (_, y)| x.cmp(y).reverse());
 }
 
 /// Sum given slice of `OrderedFloat`s.
