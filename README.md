@@ -47,6 +47,7 @@ contains several Jupyter notebooks exporing scheduling algorithms and their pote
 Contributors are welcome to implement and test new algorithms in there first. The PoC repo is
 meant for *quick-and-dirty* prototyping and general concept validation.
 
+## License and version
 **Current version**: 0.1.0
 
 **License**: MIT OR Apache-2.0

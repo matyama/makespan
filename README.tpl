@@ -5,6 +5,7 @@
 
 {{readme}}
 
+## License and version
 **Current version**: {{version}}
 
 **License**: {{license}}
