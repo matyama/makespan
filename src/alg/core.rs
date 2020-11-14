@@ -195,6 +195,16 @@ where
     }
 }
 
+/// Algorithm interface specifying input and output types.
+pub(crate) trait Solve<T> {
+    /// Type for processing times.
+    type Time = T;
+    /// Output type - default is a pair of `(solution, statistics)`.
+    type Output = (Solution<Self::Time>, Stats<Self::Time>);
+    /// Run particular scheduling algorithm given task processing times and number of resources.
+    fn solve(&self, processing_times: &[Self::Time], num_resources: usize) -> Option<Self::Output>;
+}
+
 /// Find `(argmin_x f(x), min_x f(x))` of function `f` on set `xs` or `None` if `xs` is empty.
 /// If `xs` is a multi-set and the minimum is not strict, item with the lowest index is returned.
 pub(crate) fn minimize<T, F>(xs: &[T], f: F) -> Option<(usize, T)>

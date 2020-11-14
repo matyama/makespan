@@ -91,3 +91,12 @@ pub(crate) fn greedy_schedule<T: Float>(
 
     Some((solution, stats))
 }
+
+pub(crate) struct LongestProcessingTimeFirst;
+
+// TODO: Replace `Float` by more appropriate trait(s)
+impl<T: Float> Solve<T> for LongestProcessingTimeFirst {
+    fn solve(&self, processing_times: &[Self::Time], num_resources: usize) -> Option<Self::Output> {
+        lpt(processing_times, num_resources)
+    }
+}

@@ -345,6 +345,24 @@ impl<T: Float + Sum> Heuristic<T> for FullPreemptionHeuristic {
     }
 }
 
+// TODO: Add heuristic to this config
+// TODO: Generalize bound on `T`
+pub(crate) struct BranchAndBound {
+    pub(crate) timeout: Option<Duration>,
+}
+
+// TODO: Replace `Float` by more appropriate trait(s)
+impl<T: Float + Sum> Solve<T> for BranchAndBound {
+    fn solve(&self, processing_times: &[Self::Time], num_resources: usize) -> Option<Self::Output> {
+        bnb(
+            processing_times,
+            num_resources,
+            self.timeout,
+            &PreemptionHeuristic,
+        )
+    }
+}
+
 #[cfg(test)]
 mod test {
     use crate::alg::bnb;
