@@ -133,14 +133,11 @@ impl Scheduler {
     ///
     /// The solution will generally exist except for some edge cases when there are either no tasks
     /// or resources.
-    pub fn schedule<T>(
+    pub fn schedule<T: Float + Default + Sum>(
         &self,
         processing_times: &[T],
         num_resources: usize,
-    ) -> Option<(Solution<T>, Stats<T>)>
-    where
-        T: Float + Default + Sum + Send + Sync,
-    {
+    ) -> Option<(Solution<T>, Stats<T>)> {
         match self {
             Self::LPT => alg::lpt(processing_times, num_resources),
             Self::BnB { timeout } => alg::bnb(

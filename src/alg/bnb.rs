@@ -25,7 +25,7 @@ pub(crate) fn bnb<T, H>(
     heuristic: &H,
 ) -> Option<(Solution<T>, Stats<T>)>
 where
-    T: Float + Default + Sum + Send + Sync,
+    T: Float + Default + Sum,
     H: Heuristic<T>,
 {
     let start = SystemTime::now();
@@ -110,17 +110,14 @@ where
     Some((best, stats))
 }
 
-enum BnBExpansion<T: Float + Default + Send + Sync> {
+enum BnBExpansion<T: Float + Default> {
     NewNode(BnBNode<T>),
     ValueSubOptimal,
     HeuristicSubOptimal,
     StateVisited,
 }
 
-struct BnBNode<T>
-where
-    T: Float + Default + Send + Sync,
-{
+struct BnBNode<T: Float + Default> {
     id: u64,
     schedule: HashMap<usize, usize>,
     completion_times: Vec<OrderedFloat<T>>,
@@ -129,10 +126,7 @@ where
     h_value: OrderedFloat<T>,
 }
 
-impl<T> BnBNode<T>
-where
-    T: Float + Default + Send + Sync,
-{
+impl<T: Float + Default> BnBNode<T> {
     fn compute_hash(completion_times: &[OrderedFloat<T>]) -> u64 {
         let mut hasher = DefaultHasher::new();
         let mut completion_times = completion_times.to_vec();
@@ -179,7 +173,7 @@ where
         heuristic: &H,
     ) -> BnBExpansion<T>
     where
-        T: Float + Default + Send + Sync,
+        T: Float + Default,
         H: Heuristic<T>,
     {
         let best_value = OrderedFloat(best_value);
@@ -240,10 +234,7 @@ where
     }
 }
 
-impl<T> Hash for BnBNode<T>
-where
-    T: Float + Default + Send + Sync,
-{
+impl<T: Float + Default> Hash for BnBNode<T> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.id.hash(state);
     }
@@ -258,37 +249,28 @@ where
     }
 }
 
-impl<T> PartialEq for BnBNode<T>
-where
-    T: Float + Default + Send + Sync,
-{
+impl<T: Float + Default> PartialEq for BnBNode<T> {
     fn eq(&self, other: &Self) -> bool {
         self.id == other.id
     }
 }
 
-impl<T> Eq for BnBNode<T> where T: Float + Default + Send + Sync {}
+impl<T: Float + Default> Eq for BnBNode<T> {}
 
-impl<T> PartialOrd for BnBNode<T>
-where
-    T: Float + Default + Send + Sync,
-{
+impl<T: Float + Default> PartialOrd for BnBNode<T> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl<T> Ord for BnBNode<T>
-where
-    T: Float + Default + Send + Sync,
-{
+impl<T: Float + Default> Ord for BnBNode<T> {
     fn cmp(&self, other: &BnBNode<T>) -> Ordering {
         // reverse because BnB uses a max-heap and our objective is to minimize
         self.h_value.cmp(&other.h_value).reverse()
     }
 }
 
-pub(crate) trait Heuristic<T: Float + Default + Send + Sync> {
+pub(crate) trait Heuristic<T: Float + Default> {
     fn eval(
         &self,
         completion_times: &[OrderedFloat<T>],
@@ -298,10 +280,7 @@ pub(crate) trait Heuristic<T: Float + Default + Send + Sync> {
 
 pub(crate) struct PreemptionHeuristic;
 
-impl<T> Heuristic<T> for PreemptionHeuristic
-where
-    T: Float + Default + Sum + Send + Sync,
-{
+impl<T: Float + Default + Sum> Heuristic<T> for PreemptionHeuristic {
     fn eval(
         &self,
         completion_times: &[OrderedFloat<T>],
@@ -327,10 +306,7 @@ where
 
 pub(crate) struct FullPreemptionHeuristic;
 
-impl<T> Heuristic<T> for FullPreemptionHeuristic
-where
-    T: Float + Default + Sum + Send + Sync,
-{
+impl<T: Float + Default + Sum> Heuristic<T> for FullPreemptionHeuristic {
     fn eval(
         &self,
         completion_times: &[OrderedFloat<T>],

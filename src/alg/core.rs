@@ -36,7 +36,7 @@ impl<T: Float> Ord for Task<T> {
     }
 }
 
-impl<T: Float + Send + Sync> Radixable<f64> for Task<T> {
+impl<T: Float> Radixable<f64> for Task<T> {
     type Key = f64;
     #[inline]
     fn key(&self) -> Self::Key {

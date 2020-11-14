@@ -15,13 +15,10 @@ use ordered_float::OrderedFloat;
 /// Approximation factor is `r(LPT) = 1 + 1/k − 1/kR` where
 ///  * `R` is no. resources (`R << n`)
 ///  * `k` is no. tasks assigned to the resource which finishes last
-pub(crate) fn lpt<T>(
+pub(crate) fn lpt<T: Float + Default>(
     processing_times: &[T],
     num_resources: usize,
-) -> Option<(Solution<T>, Stats<T>)>
-where
-    T: Float + Default + Send + Sync,
-{
+) -> Option<(Solution<T>, Stats<T>)> {
     if processing_times.is_empty() || num_resources == 0 {
         return None;
     }
