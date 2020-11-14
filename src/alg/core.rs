@@ -2,11 +2,12 @@ use std::cmp::Ordering;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::iter::Sum;
-use std::ops::RangeInclusive;
+use std::ops::{Div, RangeInclusive};
 use std::time::Duration;
 
 use num_traits::Float;
 use ordered_float::OrderedFloat;
+use std::convert::TryFrom;
 use voracious_radix_sort::Radixable;
 
 /// Data structure representing an input scheduling task
@@ -52,7 +53,7 @@ impl<T: Float> Radixable<f64> for Task<T> {
 /// this structure records the value of the schedule (maximum completion time) and original number
 /// of resources.
 #[derive(Debug)]
-pub struct Solution<T: Float> {
+pub struct Solution<T> {
     /// assignment: task j -> resource i (i.e. `schedule[j] = i`)
     pub schedule: Vec<usize>,
     /// total makespan (max completion time over all resources)
@@ -61,7 +62,7 @@ pub struct Solution<T: Float> {
     pub num_resources: usize,
 }
 
-impl<T: Float> Solution<T> {
+impl<T> Solution<T> {
     /// Generate schedule in the form of a Gantt chart, i.e. as mapping: `resource -> [tasks]`.
     ///
     /// # Example
@@ -119,7 +120,7 @@ impl<T: Float> Solution<T> {
 
 /// Data structure that contains various statistics collected during the scheduling.
 #[derive(Debug)]
-pub struct Stats<T: Float> {
+pub struct Stats<T> {
     /// total makespan (max completion time over all resources)
     pub value: T,
     /// approximation factor
@@ -142,7 +143,7 @@ pub struct Stats<T: Float> {
     pub proved_optimal: bool,
 }
 
-impl<T: Float> Stats<T> {
+impl<T> Stats<T> {
     /// Create new stats for an approximate algorithm. All BnB-related statistics are set to 0 and
     /// the solution is not optimal by definition.
     pub fn approx(
@@ -165,7 +166,12 @@ impl<T: Float> Stats<T> {
             proved_optimal: false,
         }
     }
+}
 
+impl<T> Stats<T>
+where
+    T: TryFrom<f64> + Div<Output = T> + Clone + Copy,
+{
     /// For an approximate algorithm returns an inclusive range of where the optimal schedule value
     /// is, otherwise `None` is returned (whenever `approx_factor.is_nan()`).
     ///
@@ -184,7 +190,7 @@ impl<T: Float> Stats<T> {
         if self.approx_factor.is_nan() {
             return None;
         }
-        let start = self.value / T::from(self.approx_factor)?;
+        let start = self.value / T::try_from(self.approx_factor).ok()?;
         Some(start..=self.value)
     }
 }
