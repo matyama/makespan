@@ -40,6 +40,13 @@ for (task, resource) in solution.schedule.iter().enumerate() {
 assert_eq!(solution.value, 9.);
 ```
 
+## Related PoC project
+There is a related project called [makespan-poc](https://github.com/matyama/makespan-poc) which
+contains several Jupyter notebooks exporing scheduling algorithms and their potential.
+
+Contributors are welcome to implement and test new algorithms in there first. The PoC repo is
+meant for *quick-and-dirty* prototyping and general concept validation.
+
 **Current version**: 0.1.0
 
 **License**: MIT OR Apache-2.0

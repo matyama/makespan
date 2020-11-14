@@ -34,6 +34,13 @@
 //!
 //! assert_eq!(solution.value, 9.);
 //! ```
+//!
+//! # Related PoC project
+//! There is a related project called [makespan-poc](https://github.com/matyama/makespan-poc) which
+//! contains several Jupyter notebooks exporing scheduling algorithms and their potential.
+//!
+//! Contributors are welcome to implement and test new algorithms in there first. The PoC repo is
+//! meant for *quick-and-dirty* prototyping and general concept validation.
 
 use std::iter::Sum;
 use std::time::Duration;
