@@ -52,10 +52,7 @@ impl<T: Float> Radixable<f64> for Task<T> {
 /// this structure records the value of the schedule (maximum completion time) and original number
 /// of resources.
 #[derive(Debug)]
-pub struct Solution<T>
-where
-    T: Float + Default,
-{
+pub struct Solution<T: Float> {
     /// assignment: task j -> resource i (i.e. `schedule[j] = i`)
     pub schedule: Vec<usize>,
     /// total makespan (max completion time over all resources)
@@ -64,10 +61,7 @@ where
     pub num_resources: usize,
 }
 
-impl<T> Solution<T>
-where
-    T: Float + Default,
-{
+impl<T: Float> Solution<T> {
     /// Generate schedule in the form of a Gantt chart, i.e. as mapping: `resource -> [tasks]`.
     ///
     /// # Example
@@ -125,10 +119,7 @@ where
 
 /// Data structure that contains various statistics collected during the scheduling.
 #[derive(Debug)]
-pub struct Stats<T>
-where
-    T: Float + Default,
-{
+pub struct Stats<T: Float> {
     /// total makespan (max completion time over all resources)
     pub value: T,
     /// approximation factor
@@ -151,10 +142,7 @@ where
     pub proved_optimal: bool,
 }
 
-impl<T> Stats<T>
-where
-    T: Float + Default,
-{
+impl<T: Float> Stats<T> {
     /// Create new stats for an approximate algorithm. All BnB-related statistics are set to 0 and
     /// the solution is not optimal by definition.
     pub fn approx(
@@ -238,9 +226,6 @@ pub(crate) fn preprocess<T: Float>(processing_times: &[T]) -> Vec<Task<T>> {
 
 /// Sum given slice of `OrderedFloat`s.
 #[inline]
-pub(crate) fn sum<T>(xs: &[OrderedFloat<T>]) -> OrderedFloat<T>
-where
-    T: Float + Default + Sum,
-{
+pub(crate) fn sum<T: Float + Sum>(xs: &[OrderedFloat<T>]) -> OrderedFloat<T> {
     xs.iter().map(|t| t.into_inner()).sum::<T>().into()
 }

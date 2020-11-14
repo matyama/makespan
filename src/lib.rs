@@ -133,7 +133,7 @@ impl Scheduler {
     ///
     /// The solution will generally exist except for some edge cases when there are either no tasks
     /// or resources.
-    pub fn schedule<T: Float + Default + Sum>(
+    pub fn schedule<T: Float + Sum>(
         &self,
         processing_times: &[T],
         num_resources: usize,

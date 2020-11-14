@@ -109,7 +109,7 @@ where
 }
 
 #[allow(dead_code)]
-pub(crate) enum StopCondition<'a, Q: Float + Default> {
+pub(crate) enum StopCondition<'a, Q: Float> {
     Iterations(usize),
     Timeout(Duration),
     Quality(Q),
@@ -121,10 +121,7 @@ pub(crate) trait Terminate {
     fn terminate(&self, iteration: usize, elapsed: &Duration, quality: Self::Q) -> bool;
 }
 
-impl<Q> Terminate for StopCondition<'_, Q>
-where
-    Q: Float + Default,
-{
+impl<Q: Float> Terminate for StopCondition<'_, Q> {
     type Q = Q;
 
     fn terminate(&self, iteration: usize, elapsed: &Duration, quality: Self::Q) -> bool {

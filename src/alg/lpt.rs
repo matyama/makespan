@@ -15,7 +15,7 @@ use ordered_float::OrderedFloat;
 /// Approximation factor is `r(LPT) = 1 + 1/k − 1/kR` where
 ///  * `R` is no. resources (`R << n`)
 ///  * `k` is no. tasks assigned to the resource which finishes last
-pub(crate) fn lpt<T: Float + Default>(
+pub(crate) fn lpt<T: Float>(
     processing_times: &[T],
     num_resources: usize,
 ) -> Option<(Solution<T>, Stats<T>)> {
@@ -39,7 +39,7 @@ pub(crate) fn lpt<T: Float + Default>(
 /// Assume that `tasks` are given as instances of `Task` and are
 /// already sorted by processing times. Then this function sequentially assigns tasks to resources
 /// while minimizing maximum completion time (makespan).
-pub(crate) fn greedy_schedule<T: Float + Default>(
+pub(crate) fn greedy_schedule<T: Float>(
     tasks: &[Task<T>],
     num_resources: usize,
     start: SystemTime,
@@ -50,7 +50,7 @@ pub(crate) fn greedy_schedule<T: Float + Default>(
 
     let num_tasks = tasks.len();
 
-    let mut completion_times: Vec<OrderedFloat<T>> = vec![OrderedFloat::default(); num_resources];
+    let mut completion_times: Vec<OrderedFloat<T>> = vec![T::zero().into(); num_resources];
     let mut task_dist = vec![0u32; num_resources];
     let mut schedule = vec![0usize; num_tasks];
 
@@ -69,7 +69,7 @@ pub(crate) fn greedy_schedule<T: Float + Default>(
     let value = completion_times
         .into_iter()
         .max()
-        .unwrap_or_default()
+        .unwrap_or_else(|| T::zero().into())
         .into_inner();
 
     // compute approximation factor r(LPT) - O(R)

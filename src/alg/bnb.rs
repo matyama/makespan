@@ -25,7 +25,7 @@ pub(crate) fn bnb<T, H>(
     heuristic: &H,
 ) -> Option<(Solution<T>, Stats<T>)>
 where
-    T: Float + Default + Sum,
+    T: Float + Sum,
     H: Heuristic<T>,
 {
     let start = SystemTime::now();
@@ -110,14 +110,14 @@ where
     Some((best, stats))
 }
 
-enum BnBExpansion<T: Float + Default> {
+enum BnBExpansion<T: Float> {
     NewNode(BnBNode<T>),
     ValueSubOptimal,
     HeuristicSubOptimal,
     StateVisited,
 }
 
-struct BnBNode<T: Float + Default> {
+struct BnBNode<T: Float> {
     id: u64,
     schedule: HashMap<usize, usize>,
     completion_times: Vec<OrderedFloat<T>>,
@@ -126,7 +126,7 @@ struct BnBNode<T: Float + Default> {
     h_value: OrderedFloat<T>,
 }
 
-impl<T: Float + Default> BnBNode<T> {
+impl<T: Float> BnBNode<T> {
     fn compute_hash(completion_times: &[OrderedFloat<T>]) -> u64 {
         let mut hasher = DefaultHasher::new();
         let mut completion_times = completion_times.to_vec();
@@ -173,7 +173,7 @@ impl<T: Float + Default> BnBNode<T> {
         heuristic: &H,
     ) -> BnBExpansion<T>
     where
-        T: Float + Default,
+        T: Float,
         H: Heuristic<T>,
     {
         let best_value = OrderedFloat(best_value);
@@ -234,7 +234,7 @@ impl<T: Float + Default> BnBNode<T> {
     }
 }
 
-impl<T: Float + Default> Hash for BnBNode<T> {
+impl<T: Float> Hash for BnBNode<T> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.id.hash(state);
     }
@@ -249,28 +249,28 @@ impl<T: Float + Default> Hash for BnBNode<T> {
     }
 }
 
-impl<T: Float + Default> PartialEq for BnBNode<T> {
+impl<T: Float> PartialEq for BnBNode<T> {
     fn eq(&self, other: &Self) -> bool {
         self.id == other.id
     }
 }
 
-impl<T: Float + Default> Eq for BnBNode<T> {}
+impl<T: Float> Eq for BnBNode<T> {}
 
-impl<T: Float + Default> PartialOrd for BnBNode<T> {
+impl<T: Float> PartialOrd for BnBNode<T> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl<T: Float + Default> Ord for BnBNode<T> {
+impl<T: Float> Ord for BnBNode<T> {
     fn cmp(&self, other: &BnBNode<T>) -> Ordering {
         // reverse because BnB uses a max-heap and our objective is to minimize
         self.h_value.cmp(&other.h_value).reverse()
     }
 }
 
-pub(crate) trait Heuristic<T: Float + Default> {
+pub(crate) trait Heuristic<T: Float> {
     fn eval(
         &self,
         completion_times: &[OrderedFloat<T>],
@@ -280,7 +280,7 @@ pub(crate) trait Heuristic<T: Float + Default> {
 
 pub(crate) struct PreemptionHeuristic;
 
-impl<T: Float + Default + Sum> Heuristic<T> for PreemptionHeuristic {
+impl<T: Float + Sum> Heuristic<T> for PreemptionHeuristic {
     fn eval(
         &self,
         completion_times: &[OrderedFloat<T>],
@@ -290,8 +290,8 @@ impl<T: Float + Default + Sum> Heuristic<T> for PreemptionHeuristic {
             .unwrap_or_else(T::one)
             .into();
 
-        let mut sum_remaining = OrderedFloat::default();
-        let mut max_remaining = OrderedFloat::default();
+        let mut sum_remaining = T::zero().into();
+        let mut max_remaining = T::zero().into();
 
         for &t in remaining_times.iter() {
             sum_remaining = sum_remaining + t;
@@ -306,20 +306,21 @@ impl<T: Float + Default + Sum> Heuristic<T> for PreemptionHeuristic {
 
 pub(crate) struct FullPreemptionHeuristic;
 
-impl<T: Float + Default + Sum> Heuristic<T> for FullPreemptionHeuristic {
+impl<T: Float + Sum> Heuristic<T> for FullPreemptionHeuristic {
     fn eval(
         &self,
         completion_times: &[OrderedFloat<T>],
         remaining_times: &[OrderedFloat<T>],
     ) -> OrderedFloat<T> {
         if completion_times.is_empty() {
-            return OrderedFloat::default();
+            return T::zero().into();
         }
 
         let mut completion_times = completion_times.to_vec();
         let mut remaining_time = sum(remaining_times);
 
-        while remaining_time > OrderedFloat::default() {
+        let zero = T::zero().into();
+        while remaining_time > zero {
             let any_ct = completion_times.first().expect("empty completion times");
 
             if completion_times.iter().all(|ct| ct == any_ct) {
@@ -337,7 +338,10 @@ impl<T: Float + Default + Sum> Heuristic<T> for FullPreemptionHeuristic {
             remaining_time = remaining_time - diff;
         }
 
-        completion_times.into_iter().max().unwrap_or_default()
+        completion_times
+            .into_iter()
+            .max()
+            .unwrap_or_else(|| T::zero().into())
     }
 }
 
