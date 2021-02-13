@@ -63,7 +63,7 @@ pub use alg::{Solution, Stats};
 ///
 /// # Scheduler instances
 /// There are two scheduler variants:
-///  1. Approximate solver - `LPT`
+///  1. Approximate solver - `Lpt`
 ///  2. Optimal solver - `BnB`
 ///
 /// ## Approximate solver
@@ -81,7 +81,7 @@ pub use alg::{Solution, Stats};
 /// # extern crate makespan;
 /// use makespan::Scheduler;
 /// let pts = vec![5., 5., 4., 4., 3., 3., 3.];
-/// let (solution, stats) = Scheduler::LPT.schedule(&pts, 3).unwrap();
+/// let (solution, stats) = Scheduler::Lpt.schedule(&pts, 3).unwrap();
 /// assert_eq!(solution.value, 11.); // opt = 9.
 /// assert_eq!(stats.approx_factor, 1.4444444444444444); // 11. < 9. * 1.4444444444444444 = 13.
 /// ```
@@ -124,7 +124,7 @@ pub use alg::{Solution, Stats};
 /// ```
 pub enum Scheduler {
     /// Longest Processing Time First approximate solver
-    LPT,
+    Lpt,
     /// Branch & Bound optimal solver
     BnB { timeout: Option<Duration> },
 }
@@ -142,7 +142,7 @@ impl Scheduler {
         num_resources: usize,
     ) -> Option<(Solution<T>, Stats<T>)> {
         match self {
-            Self::LPT => LongestProcessingTimeFirst.solve(processing_times, num_resources),
+            Self::Lpt => LongestProcessingTimeFirst.solve(processing_times, num_resources),
             Self::BnB { timeout } => {
                 BranchAndBound { timeout: *timeout }.solve(processing_times, num_resources)
             }

@@ -1,7 +1,7 @@
 use makespan::Scheduler;
 use rand::prelude::*;
 
-const SCHEDULER: Scheduler = Scheduler::LPT;
+const SCHEDULER: Scheduler = Scheduler::Lpt;
 
 #[test]
 fn no_tasks() {

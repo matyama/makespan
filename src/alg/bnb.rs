@@ -286,12 +286,12 @@ impl<T: Float + Sum> Heuristic<T> for PreemptionHeuristic {
         completion_times: &[OrderedFloat<T>],
         remaining_times: &[OrderedFloat<T>],
     ) -> OrderedFloat<T> {
-        let num_resources = T::from(completion_times.len())
+        let num_resources: OrderedFloat<T> = T::from(completion_times.len())
             .unwrap_or_else(T::one)
             .into();
 
-        let mut sum_remaining = T::zero().into();
-        let mut max_remaining = T::zero().into();
+        let mut sum_remaining: OrderedFloat<T> = T::zero().into();
+        let mut max_remaining: OrderedFloat<T> = T::zero().into();
 
         for &t in remaining_times.iter() {
             sum_remaining = sum_remaining + t;
@@ -324,7 +324,7 @@ impl<T: Float + Sum> Heuristic<T> for FullPreemptionHeuristic {
             let any_ct = completion_times.first().expect("empty completion times");
 
             if completion_times.iter().all(|ct| ct == any_ct) {
-                let num_resources = T::from(completion_times.len())
+                let num_resources: OrderedFloat<T> = T::from(completion_times.len())
                     .unwrap_or_else(T::one)
                     .into();
                 return *any_ct + remaining_time / num_resources;
