@@ -1,3 +1,5 @@
+#![feature(associated_type_defaults)]
+
 //! # Task scheduler
 //! This library implements several solvers for `P || C_max` task scheduling problem.
 //!
@@ -49,9 +51,10 @@ use num_traits::Float;
 
 mod alg;
 
-use alg::bnb::PreemptionHeuristic;
+use alg::{BranchAndBound, LongestProcessingTimeFirst, Solve};
 pub use alg::{Solution, Stats};
 
+// TODO: Is this enum really necessary now that there is `Solve` and structs impl. it?
 // TODO: Allow T to be int type / any type that can be converted to f64
 /// Solver for `P || C_max` task scheduling problem. The setting is
 ///  * parallel identical resources
@@ -133,22 +136,16 @@ impl Scheduler {
     ///
     /// The solution will generally exist except for some edge cases when there are either no tasks
     /// or resources.
-    pub fn schedule<T>(
+    pub fn schedule<T: Float + Sum>(
         &self,
         processing_times: &[T],
         num_resources: usize,
-    ) -> Option<(Solution<T>, Stats<T>)>
-    where
-        T: Float + Default + Sum + Send + Sync,
-    {
+    ) -> Option<(Solution<T>, Stats<T>)> {
         match self {
-            Self::LPT => alg::lpt(processing_times, num_resources),
-            Self::BnB { timeout } => alg::bnb(
-                processing_times,
-                num_resources,
-                *timeout,
-                &PreemptionHeuristic,
-            ),
+            Self::LPT => LongestProcessingTimeFirst.solve(processing_times, num_resources),
+            Self::BnB { timeout } => {
+                BranchAndBound { timeout: *timeout }.solve(processing_times, num_resources)
+            }
         }
     }
 }

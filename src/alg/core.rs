@@ -2,11 +2,12 @@ use std::cmp::Ordering;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::iter::Sum;
-use std::ops::RangeInclusive;
+use std::ops::{Div, RangeInclusive};
 use std::time::Duration;
 
 use num_traits::Float;
 use ordered_float::OrderedFloat;
+use std::convert::TryFrom;
 use voracious_radix_sort::Radixable;
 
 /// Data structure representing an input scheduling task
@@ -36,7 +37,7 @@ impl<T: Float> Ord for Task<T> {
     }
 }
 
-impl<T: Float + Send + Sync> Radixable<f64> for Task<T> {
+impl<T: Float> Radixable<f64> for Task<T> {
     type Key = f64;
     #[inline]
     fn key(&self) -> Self::Key {
@@ -52,10 +53,7 @@ impl<T: Float + Send + Sync> Radixable<f64> for Task<T> {
 /// this structure records the value of the schedule (maximum completion time) and original number
 /// of resources.
 #[derive(Debug)]
-pub struct Solution<T>
-where
-    T: Float + Default,
-{
+pub struct Solution<T> {
     /// assignment: task j -> resource i (i.e. `schedule[j] = i`)
     pub schedule: Vec<usize>,
     /// total makespan (max completion time over all resources)
@@ -64,10 +62,7 @@ where
     pub num_resources: usize,
 }
 
-impl<T> Solution<T>
-where
-    T: Float + Default,
-{
+impl<T> Solution<T> {
     /// Generate schedule in the form of a Gantt chart, i.e. as mapping: `resource -> [tasks]`.
     ///
     /// # Example
@@ -125,10 +120,7 @@ where
 
 /// Data structure that contains various statistics collected during the scheduling.
 #[derive(Debug)]
-pub struct Stats<T>
-where
-    T: Float + Default,
-{
+pub struct Stats<T> {
     /// total makespan (max completion time over all resources)
     pub value: T,
     /// approximation factor
@@ -151,10 +143,7 @@ where
     pub proved_optimal: bool,
 }
 
-impl<T> Stats<T>
-where
-    T: Float + Default,
-{
+impl<T> Stats<T> {
     /// Create new stats for an approximate algorithm. All BnB-related statistics are set to 0 and
     /// the solution is not optimal by definition.
     pub fn approx(
@@ -177,7 +166,12 @@ where
             proved_optimal: false,
         }
     }
+}
 
+impl<T> Stats<T>
+where
+    T: TryFrom<f64> + Div<Output = T> + Clone + Copy,
+{
     /// For an approximate algorithm returns an inclusive range of where the optimal schedule value
     /// is, otherwise `None` is returned (whenever `approx_factor.is_nan()`).
     ///
@@ -196,9 +190,19 @@ where
         if self.approx_factor.is_nan() {
             return None;
         }
-        let start = self.value / T::from(self.approx_factor)?;
+        let start = self.value / T::try_from(self.approx_factor).ok()?;
         Some(start..=self.value)
     }
+}
+
+/// Algorithm interface specifying input and output types.
+pub(crate) trait Solve<T> {
+    /// Type for processing times.
+    type Time = T;
+    /// Output type - default is a pair of `(solution, statistics)`.
+    type Output = (Solution<Self::Time>, Stats<Self::Time>);
+    /// Run particular scheduling algorithm given task processing times and number of resources.
+    fn solve(&self, processing_times: &[Self::Time], num_resources: usize) -> Option<Self::Output>;
 }
 
 /// Find `(argmin_x f(x), min_x f(x))` of function `f` on set `xs` or `None` if `xs` is empty.
@@ -238,9 +242,6 @@ pub(crate) fn preprocess<T: Float>(processing_times: &[T]) -> Vec<Task<T>> {
 
 /// Sum given slice of `OrderedFloat`s.
 #[inline]
-pub(crate) fn sum<T>(xs: &[OrderedFloat<T>]) -> OrderedFloat<T>
-where
-    T: Float + Default + Sum,
-{
+pub(crate) fn sum<T: Float + Sum>(xs: &[OrderedFloat<T>]) -> OrderedFloat<T> {
     xs.iter().map(|t| t.into_inner()).sum::<T>().into()
 }
