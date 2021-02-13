@@ -290,8 +290,8 @@ impl<T: Float + Sum> Heuristic<T> for PreemptionHeuristic {
             .unwrap_or_else(T::one)
             .into();
 
-        let mut sum_remaining = T::zero().into();
-        let mut max_remaining = T::zero().into();
+        let mut sum_remaining: OrderedFloat<T> = T::zero().into();
+        let mut max_remaining: OrderedFloat<T> = T::zero().into();
 
         for &t in remaining_times.iter() {
             sum_remaining = sum_remaining + t;
