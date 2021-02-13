@@ -8,7 +8,7 @@ use test::Bencher;
 extern crate makespan;
 use makespan::Scheduler;
 
-const LPT: Scheduler = Scheduler::LPT;
+const LPT: Scheduler = Scheduler::Lpt;
 const BNB: Scheduler = Scheduler::BnB { timeout: None };
 
 const PROCESSING_TIMES: [f64; 7] = [5., 5., 4., 4., 3., 3., 3.];
