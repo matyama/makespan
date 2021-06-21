@@ -11,7 +11,7 @@ categories = ["algorithms", "science"]
 
 [badges]
 codecov = { repository = "matyama/makespan", branch = "master", service = "github" }
-maintenance = { status = "actively-developed" }
+maintenance = { status = "experimental" }
 
 [lib]
 name = "makespan"

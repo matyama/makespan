@@ -56,7 +56,7 @@ where
     stats.approx_factor = 1.;
 
     let mut queue = BinaryHeap::new();
-    queue.push(BnBNode::init(num_resources, &remaining_times, best.value));
+    queue.push(BnBNode::init(num_resources, remaining_times, best.value));
 
     // Best-first search using f(N) = h(N)
     while let Some(node) = queue.pop() {
