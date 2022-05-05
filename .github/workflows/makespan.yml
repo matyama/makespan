@@ -23,25 +23,11 @@ jobs:
 #          - 1.46.0  # MSRV TODO: Find actually minimal version
 
     steps:
-    - uses: actions/checkout@v2
-
-    - name: Install latest nightly
-      uses: actions-rs/toolchain@v1
-      with:
-        toolchain: nightly
-        override: true
-        components: rustfmt, clippy
-
-    - name: Clean environment
-      uses: actions-rs/cargo@v1
-      with:
-        command: clean
+    - name: Checkout
+      uses: actions/checkout@v2
 
     - name: Build
-      uses: actions-rs/cargo@v1
-      with:
-        command: build
-        args: --verbose
+      run: cargo build --verbose
 
 # TODO: Setup [cargo-deny](https://crates.io/crates/cargo-deny)
 #    - name: Run dependency lint
@@ -51,20 +37,16 @@ jobs:
 #        - cargo deny check
 
     - name: Run checks
-      uses: actions-rs/cargo@v1
-      with:
-        command: clippy
-        args: --all-features -- -D warnings
-
+      run: clippy --all-features -- -D warnings
+      
     - name: Run tests
-      uses: actions-rs/cargo@v1
-      with:
-        command: test
-        args: --verbose --all-features --no-fail-fast
+      run: cargo test --all-features --no-fail-fast
       env:
         CARGO_INCREMENTAL: 0
         RUSTFLAGS: -Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests
         RUSTDOCFLAGS: -Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests
+    
+    # TODO: build docs
 
     - name: Generate coverage report
       id: coverage

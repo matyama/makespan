@@ -1,5 +1,3 @@
-#![feature(associated_type_defaults)]
-
 //! # Task scheduler
 //! This library implements several solvers for `P || C_max` task scheduling problem.
 //!

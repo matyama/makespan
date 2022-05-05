@@ -353,7 +353,11 @@ pub(crate) struct BranchAndBound {
 
 // TODO: Replace `Float` by more appropriate trait(s)
 impl<T: Float + Sum> Solve<T> for BranchAndBound {
-    fn solve(&self, processing_times: &[Self::Time], num_resources: usize) -> Option<Self::Output> {
+    fn solve(
+        &self,
+        processing_times: &[T],
+        num_resources: usize,
+    ) -> Option<(Solution<T>, Stats<T>)> {
         bnb(
             processing_times,
             num_resources,

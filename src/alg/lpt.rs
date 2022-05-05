@@ -96,7 +96,11 @@ pub(crate) struct LongestProcessingTimeFirst;
 
 // TODO: Replace `Float` by more appropriate trait(s)
 impl<T: Float> Solve<T> for LongestProcessingTimeFirst {
-    fn solve(&self, processing_times: &[Self::Time], num_resources: usize) -> Option<Self::Output> {
+    fn solve(
+        &self,
+        processing_times: &[T],
+        num_resources: usize,
+    ) -> Option<(Solution<T>, Stats<T>)> {
         lpt(processing_times, num_resources)
     }
 }

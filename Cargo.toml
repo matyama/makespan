@@ -2,7 +2,7 @@
 name = "makespan"
 version = "0.1.0"
 authors = ["Martin Matyášek <martin.matyasek@gmail.com>"]
-edition = "2018"
+edition = "2021"
 description = "Minimum makespan scheduler"
 repository = "https://github.com/matyama/makespan"
 license = "MIT OR Apache-2.0"
