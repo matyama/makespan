@@ -10,7 +10,7 @@ keywords = ["scheduling", "makespan", "operations research"]
 categories = ["algorithms", "science"]
 
 [badges]
-codecov = { repository = "matyama/makespan", branch = "master", service = "github" }
+#codecov = { repository = "matyama/makespan", branch = "main", service = "github" }
 maintenance = { status = "experimental" }
 
 [lib]
