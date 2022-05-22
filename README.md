@@ -25,7 +25,14 @@ General constraints:
 
 ### Single-processor
 This class of scheduling problems considers single processing unit (resource).
-NOTE: not implemented yet
+
+#### Non-preemptive
+This sub-class considers non-preemptive tasks and is covered by module [`sp`](src/sp.rs). The
+list of problems and corresponding algorithms includes:
+ - `1||C_max`: optimal, linear
+ - `1|prec|C_max`: optimal, linear
+ - `1|r_j|C_max`: optimal, log-linear
+ - `1|d'_j|C_max`: EDF (optimal, log-linear)
 
 ### Multi-processor
 This class of scheduling problems considers multiple processing units (resources).
@@ -46,6 +53,6 @@ The list of problems and corresponding algorithms includes:
  - [CTU lecture slides](https://rtime.ciirc.cvut.cz/~hanzalek/KO/sched_e.pdf)
 
 ## License and version
-**Current version**: 0.2.0
+**Current version**: 0.3.0
 
 **License**: MIT OR Apache-2.0
