@@ -34,6 +34,7 @@ list of problems and corresponding algorithms includes:
  - `1|r_j|C_max`: optimal, log-linear
  - `1|d'_j|C_max`: EDF (optimal, log-linear)
  - `1|r_j,d'_j|C_max`: heuristic (log-linear)
+ - `1|chains,r_j|C_max`: special case with `chains` totally ordered (otpimal, linear)
 
 ### Multi-processor
 This class of scheduling problems considers multiple processing units (resources).
