@@ -1,3 +1,20 @@
+//! # Non-preemptive multi-processor scheduling
+//! This module is dedicated to **multi-processor** schduling problems **without task preeption**.
+//!
+//! ## Additional assumptions
+//!  - There are multiple processing units (resources)
+//!  - Once tasks are started, they cannot be interrupted (non-preemptive)
+//!
+//! ## Scheduling problems
+//!
+//! ### `P||C_max`
+//! The `P||C_max` problem is described for *parallel identical resources* with *no task
+//! constraints* and is proven to be *NP-hard*.
+//!
+//! There are two implementations solving this problem:
+//!  1. An approximate algorithm called **Longest Processing Time First (LPT)** can be found in
+//!     [`mp::lpt`](src/mp.rs)
+//!  1. An optimal *Branch&Bound (BnB)* algorithm [`mp::bnb`](src/mp.rs)
 use std::collections::hash_map::DefaultHasher;
 use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
@@ -39,6 +56,21 @@ pub struct Schedule<T: Eq> {
 /// Approximation factor is `r(LPT) = 1 + 1/k − 1/kR` where
 ///  - `R` is no. resources (`R << n`)
 ///  - `k` is no. tasks assigned to the resource which finishes last
+///
+/// ## Example
+/// ```rust
+/// # extern crate makespan;
+/// use makespan::mp;
+///
+/// // Define a vector of processing times for each task
+/// let p: Vec<u8> = vec![5, 5, 4, 4, 3, 3, 3];
+///
+/// // Find approximate schedule for 3 resources
+/// let mp::Schedule { s: _, z: _, c } = mp::lpt(&p, 3)
+///     .expect("feasible solution");
+///
+/// assert_eq!(c, 11);
+/// ```
 pub fn lpt<T: Time>(p: &[T], r: usize) -> Option<Schedule<T>> {
     if p.is_empty() || r == 0 {
         return None;
@@ -82,6 +114,21 @@ pub fn lpt<T: Time>(p: &[T], r: usize) -> Option<Schedule<T>> {
 ///  - the optimal makespan `c`
 ///
 /// Note that finding an optimal schedule for `P || C_max` is proven to be *NP-hard*.
+///
+/// ## Example
+/// ```rust
+/// # extern crate makespan;
+/// use makespan::mp;
+///
+/// // Define a vector of processing times for each task
+/// let p: Vec<u8> = vec![5, 5, 4, 4, 3, 3, 3];
+///
+/// // Find optimal schedule for 3 resources
+/// let mp::Schedule { s: _, z: _, c } = mp::bnb(&p, 3)
+///     .expect("feasible solution");
+///
+/// assert_eq!(c, 9);
+/// ```
 pub fn bnb<T: Time + Hash + Into<f64>>(p: &[T], r: usize) -> Option<Schedule<T>> {
     if p.is_empty() || r == 0 {
         return None;
