@@ -27,23 +27,24 @@ General constraints:
 This class of scheduling problems considers single processing unit (resource).
 
 #### Non-preemptive
-This sub-class considers non-preemptive tasks and is covered by module [`sp`](src/sp.rs). The
+This sub-class considers non-preemptive tasks and is covered by module [`sp`](crate::sp). The
 list of problems and corresponding algorithms includes:
  - `1||C_max`: optimal, linear
  - `1|prec|C_max`: optimal, linear
  - `1|r_j|C_max`: optimal, log-linear
  - `1|d'_j|C_max`: EDF (optimal, log-linear)
+ - `1|r_j,d'_j|C_max`: heuristic (log-linear)
 
 ### Multi-processor
 This class of scheduling problems considers multiple processing units (resources).
 
 #### Non-preemptive
-This sub-class considers non-preemptive tasks and is covered by module [`mp`](src/mp.rs). The
+This sub-class considers non-preemptive tasks and is covered by module [`mp`](crate::mp). The
 list of problems and corresponding algorithms includes:
  - `P||C_max`: LPT (approx), BnB (optimal)
 
 #### Preemptive
-This sub-class considers preemptive tasks and is covered by module [`mp_pmtn`](src/mp_pmtn.rs).
+This sub-class considers preemptive tasks and is covered by module [`mp_pmtn`](crate::mp_pmtn).
 The list of problems and corresponding algorithms includes:
  - `P|pmtn|C_max`: McNaughton (optimal)
 
