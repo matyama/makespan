@@ -98,12 +98,6 @@ pub fn lpt<T: Time>(p: &[T], r: usize) -> Option<Schedule<T>> {
     Some(Schedule { s, z, c })
 }
 
-// TODO: document `LB = C_min(R) + C_pmtn(V')` where
-//  - `C_min(R) = min_i c_i` is the min. completion time across currently scheduled resources
-//  - `C_pmtn(V')` is the opt (McNaughton) makespan of `P|pmtn|C_max` with tasks from a set V'
-//  - `V = {unscheduled tasks}`
-//  - `V' = V + {portion of scheduled tasks which runs after C_min(R)}`
-// I.e. LB is "min resouce completion time" + "McNaughton with all processing time after C_min(R)".
 /// Search for optimal solution of `P || C_max` using Branch&Bound given
 ///  - the processing time `p[j]` of task `j`
 ///  - the number of parallel identical resources `r`
@@ -113,7 +107,66 @@ pub fn lpt<T: Time>(p: &[T], r: usize) -> Option<Schedule<T>> {
 ///  - the resource `z[j]` (in the range `0..r`) that will run task `j`
 ///  - the optimal makespan `c`
 ///
-/// Note that finding an optimal schedule for `P || C_max` is proven to be *NP-hard*.
+/// Note that finding an optimal schedule for `P || C_max` is proven to be **NP-hard**.
+///
+/// ## Branch and Bound implementation
+///
+/// ### Upper Bound (UB) pruning
+/// Initial feasible solution is found by an [`lpt`](crate::mp::lpt) call as set as an UB and then
+/// each time a complete solution is found, the UB is updated (if better schedule has been fuound).
+///
+/// Any schedule whose makespan exceeeds current UB (`C_max >= UB`) during the B&B search is pruned.
+///
+/// ### Lower Bound (LB) pruning
+/// Partial solutions are also lower bounded using a modification of the McNaughton's algorithm for
+/// a relaxed problem `P|pmtn|C_max` (i.e. assuming task preeption).
+///
+/// First, lets denote `C_min(R)` to be the minimum resource completion time assuming a partial
+/// solution on `R` resources. Further, let `V` denote the set tasks that remain to be scheduled and
+/// `V'` to additionally to `V` also include those already scheduled tasks that continue to run
+/// after `C_min(R)` (i.e. start before but finish after). Finally, let `C_pmtn(V')` denote the
+/// optimal makespan of an insntace of `P|pmtn|C_max` on tasks in `V'` and the processing time of
+/// tasks in `V'\V` to be restricted to the portion that exceeds `C_min(R)`.
+///
+/// In summary:
+///  - `C_min(R) = min_i C_i` where `C_i` is the current maxumum completion time of tasks scheduled
+///    to resource `i`
+///  - `V'` is a set of tasks that either remain to be scheduled or have not finished until (and
+///    including) `C_min(R)`
+///  - `C_pmtn(V')` corresponds to the optimal makespan of `P|pmtn|C_max` (found by McNaughton)
+///    using tasks `V'` but with processing times of already running times (`V'\V`) reduced to the
+///    portion after `C_min(R)`
+///
+/// Then the LB on a (partial) solution can be computed as `LB = C_min(R) + C_pmtn(V')`. The
+/// intuition is that
+///  - `C_min(R)` represents the *sequential* characted of already scheduled tasks that is similar
+///    to one part of McNaughton's computation of the optimum. Notice that for a complete schedule
+///    (no remainig tasks) `C_min(R) <= C_max` of the original problem.
+///  - `C_pmtn(V')` is a solution of a relaxed sub-problem in which we allow task preemption - as
+///    if we tried to solve `P|pmtn|C_max` with an empty schedule
+///  - Tasks that start before but finish after `C_min(R)` are considered sequential in the first
+///    part and potentially preemptive in the other part. Hence only the latter is inluded in the
+///    relaxation
+///  - Because `C_min(R) <= C_max` and `C_pmtn(V')` is a solution to a problem relaxation, it
+///    follows that `LB <= C_max`
+///
+/// Finally, the B&B search prunes any generated node whose `LB >= UB` as further progress cannot
+/// lead to an optimum.
+///
+/// ### Pruning symmetries
+/// Since `P||C_max` assumes **identical** resources, their permutation has no effect on the
+/// optimal schedule. Once the search reaches certian resource completion times (`C_i`
+/// for each resource `i`), the same completion times (and thus makespan `C_max = max_i C_i`) will
+/// be yielded in a different portion of the search tree modulo a permutation of the resources
+/// (indices `i`).
+///
+/// The B&B search records hashes of visited states (hashes of sorted completion times `C_i`) and
+/// prunes new nodes with states that have already been visited.
+///
+/// ### Search & heuristics
+///  - The search order currently progresses in a depth-first manner and is not directed to
+///    specific states
+///  - When expanding a node, the search currently always selects the first unscheduled task
 ///
 /// ## Example
 /// ```rust
