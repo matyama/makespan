@@ -3,50 +3,49 @@
 
 # makespan
 
-## Task scheduler
-This library implements several solvers for `P || C_max` task scheduling problem.
+## Makespan
+This Rust library implements several solvers for task scheduling problems optimizing
+[makespan](https://en.wikipedia.org/wiki/Makespan).
 
-`P || C_max` is a `a|b|c` notation used in *operations research* where
-  1. `P` stands for **parallel identical resources**
-  2. `||` denotes that there are no task constraints, notably that **tasks are non-preemptive**
-  3. `C_max` means that the objective is to **minimize the maximum completion time** (makespan)
+### Graham's notation
+Definitions of scheduling problems in *operations research* commonly use
+[Graham's notation](https://en.wikipedia.org/wiki/Optimal_job_scheduling) `a|b|c` where
+  1. `a` defines *machine environment* (resources)
+  2. `b` denotes *task/job characteristics*
+  3. `c` specifies the *objective function* that is to be minimized (note that this library
+     focuses on optimizing the *makespan* `C_max`)
 
-This task is in general NP-hard and is sometimes called *Load balancing problem* or
-*Minimum makespan scheduling*.
+## Covered scheduling problems
+The module structure of this library follows a structure of the general taxonomy of scheduling
+problems and as mentioned above focuses on minimizing the *makespan* (`C_max`).
 
-### Scheduler variants
-There are two algorithms for solving the minimum makespan problem:
- 1. Approximate solver - `LPT` (Longest Processing Time First)
- 2. Optimal solver - `BnB` (Branch & Bound Best-first search)
+General constraints:
+ - Each task can be processed by at most one resource at a time
+ - Each resource can process at most one task at a time
 
-### Example
-```rust
-use makespan::Scheduler;
+### Single-processor
+This class of scheduling problems considers single processing unit (resource).
+NOTE: not implemented yet
 
-// Define a vector of processing times for each task
-let processing_times = vec![5., 5., 4., 4., 3., 3., 3.];
+### Multi-processor
+This class of scheduling problems considers multiple processing units (resources).
 
-// Create new Branch & Bound scheduler
-let scheduler = Scheduler::BnB { timeout: None };
+#### Non-preemptive
+This sub-class considers non-preemptive tasks and is covered by module [`mp`](src/mp.rs). The
+list of problems and corresponding algorithms includes:
+ - `P||C_max`: LPT (approx), BnB (optimal)
 
-// Find optimal schedule for 3 resources
-let (solution, stats) = scheduler.schedule(&processing_times, 3).unwrap();
+#### Preemptive
+This sub-class considers preemptive tasks and is covered by module [`mp_pmtn`](src/mp_pmtn.rs).
+The list of problems and corresponding algorithms includes:
+ - `P|pmtn|C_max`: McNaughton (optimal)
 
-for (task, resource) in solution.schedule.iter().enumerate() {
-    println!("{} <- {}", resource, task);
-}
-
-assert_eq!(solution.value, 9.);
-```
-
-## Related PoC project
-There is a related project called [makespan-poc](https://github.com/matyama/makespan-poc) which
-contains several Jupyter notebooks exporing scheduling algorithms and their potential.
-
-Contributors are welcome to implement and test new algorithms in there first. The PoC repo is
-meant for *quick-and-dirty* prototyping and general concept validation.
+## Resources
+ - [Complexity results](http://www2.informatik.uni-osnabrueck.de/knust/class/dateien/allResults.pdf)
+ - [The scheduling zoo](http://www-desir.lip6.fr/~durrc/query/)
+ - [CTU lecture slides](https://rtime.ciirc.cvut.cz/~hanzalek/KO/sched_e.pdf)
 
 ## License and version
-**Current version**: 0.1.0
+**Current version**: 0.2.0
 
 **License**: MIT OR Apache-2.0

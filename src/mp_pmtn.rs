@@ -1,3 +1,16 @@
+//! # Preemptive multi-processor scheduling
+//! This module is dedicated to **multi-processor** schduling problems **with task preeption**.
+//!
+//! ## Additional assumptions
+//!  - There are multiple processing units (resources)
+//!  - The number of preemptions must be finite
+//!
+//! ## Scheduling problems
+//!
+//! ### `P|pmtn|C_max`
+//! The `P|pmtn|C_max` problem is described for *parallel identical resources* with *task preeption*
+//! and can be solved in *linear* time by the **McNaughton's algorithm**
+//! [`mp_pmtn::mcnaughton`](src/mp_pmtn.rs).
 use std::cmp::max;
 
 use num_traits::Float;
@@ -17,9 +30,38 @@ pub struct Schedule<T> {
 
 // TODO: try to generalize to `<T: Time + Into<U>, U: Time + Float> -> Option<Schedule<U>>`
 //  - potentially define `trait Frac: Time + Float` => `U: Frac`
-/// McNaughton's optimal algorithm for `P|pmtn|C_max`
+/// McNaughton's optimal algorithm for `P|pmtn|C_max` given
+///  - the processing time `p[j]` of task `j`
+///  - the number of parallel identical resources `r`
 ///
-/// Runs in `O(n)` worst-case time where `n` is the number of tasks to schedule.
+/// The resulting [Schedule] consists of the following parts:
+///  - the starting time `s[j][k]` of the `k`-th part of task `j`
+///  - the resource ID (in range `0..r`) `z[j][k]` on which the `k`-th part of task `j` executes
+///  - the optimal makespan `c`
+///
+/// Runs in `O(n)` worst-case time where `n` is the number of tasks to schedule (i.e. the length of
+/// `p`).
+///
+/// Note that since tasks can be interrupted, there's an additional [Float] bound on [Time].
+///
+/// ## Example
+/// ```rust
+/// # extern crate makespan;
+/// use makespan::mp_pmtn;
+/// use ordered_float::OrderedFloat;
+///
+/// // Define a vector of processing times for each task
+/// let p: Vec<_> = [2., 2., 2., 2., 1.]
+///     .into_iter()
+///     .map(OrderedFloat)
+///     .collect();
+///
+/// // Find optimal schedule for 4 resources
+/// let mp_pmtn::Schedule { s: _, z: _, c } = mp_pmtn::mcnaughton(&p, 4)
+///     .expect("feasible solution");
+///
+/// assert_eq!(c.into_inner(), 2.25);
+/// ```
 pub fn mcnaughton<T: Time + Float>(p: &[T], r: usize) -> Option<Schedule<T>> {
     if r == 0 {
         return None;
