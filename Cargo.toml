@@ -1,6 +1,6 @@
 [package]
 name = "makespan"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Martin Matyášek <martin.matyasek@gmail.com>"]
 edition = "2021"
 description = "Minimum makespan scheduler"
@@ -18,7 +18,12 @@ name = "makespan"
 path = "src/lib.rs"
 
 [dependencies]
+itertools = "0.10"
 num-traits = "0.2"
-ordered-float = "2.0"
-rand = "0.7"
-voracious_radix_sort = "1.1.0"
+ordered-float = "3.0"
+rand = "0.8"
+
+# TODO: criterion
+[dev-dependencies]
+rstest = "0.12"
+

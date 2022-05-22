@@ -1,149 +1,70 @@
-//! # Task scheduler
-//! This library implements several solvers for `P || C_max` task scheduling problem.
+//! # Task scheduling
+//! This library implements several solvers for task scheduling problems optimizing
+//! [makespan](https://en.wikipedia.org/wiki/Makespan).
 //!
-//! `P || C_max` is a `a|b|c` notation used in *operations research* where
-//!   1. `P` stands for **parallel identical resources**
-//!   2. `||` denotes that there are no task constraints, notably that **tasks are non-preemptive**
-//!   3. `C_max` means that the objective is to **minimize the maximum completion time** (makespan)
-//!
-//! This task is in general NP-hard and is sometimes called *Load balancing problem* or
-//! *Minimum makespan scheduling*.
-//!
-//! ## Scheduler variants
-//! There are two algorithms for solving the minimum makespan problem:
-//!  1. Approximate solver - `LPT` (Longest Processing Time First)
-//!  2. Optimal solver - `BnB` (Branch & Bound Best-first search)
-//!
-//! ## Example
-//! ```rust
-//! # extern crate makespan;
-//! use makespan::Scheduler;
-//!
-//! // Define a vector of processing times for each task
-//! let processing_times = vec![5., 5., 4., 4., 3., 3., 3.];
-//!
-//! // Create new Branch & Bound scheduler
-//! let scheduler = Scheduler::BnB { timeout: None };
-//!
-//! // Find optimal schedule for 3 resources
-//! let (solution, stats) = scheduler.schedule(&processing_times, 3).unwrap();
-//!
-//! for (task, resource) in solution.schedule.iter().enumerate() {
-//!     println!("{} <- {}", resource, task);
-//! }
-//!
-//! assert_eq!(solution.value, 9.);
-//! ```
-//!
-//! # Related PoC project
-//! There is a related project called [makespan-poc](https://github.com/matyama/makespan-poc) which
-//! contains several Jupyter notebooks exporing scheduling algorithms and their potential.
-//!
-//! Contributors are welcome to implement and test new algorithms in there first. The PoC repo is
-//! meant for *quick-and-dirty* prototyping and general concept validation.
+//! ## Graham's notation
+//! Definitions of scheduling problems in *operations research* commonly use
+//! [Graham's notation](https://en.wikipedia.org/wiki/Optimal_job_scheduling) `a|b|c` where
+//!   1. `a` defines *machine environment*
+//!   2. `b` denotes *task/job characteristics*
+//!   3. `c` specifies the *objective function* that is to be minimized (note that this library
+//!      focuses on optimizing the *makespan* `C_max`)
+use num_traits::{Num, NumCast};
+use ordered_float::{Float, NotNan, OrderedFloat};
 
-use std::iter::Sum;
-use std::time::Duration;
+pub mod mp;
+pub mod mp_pmtn;
 
-use num_traits::Float;
+/// Class of types representing a totally ordered numerical time.
+///
+/// The most significant features of [Time] include:
+///  1. the type must support basic numerical arithmetic via [Num] and conversions through [NumCast]
+///  1. this type must also be [Eq] (comparable on equality) and [Ord] (totally ordered)
+///  1. there is a maximal value representing the notion of infinity
+///
+/// This library includes implmentations for standard unsigned integral types. For floats one can
+/// use for instance [OrderedFloat] or [NotNan] types which extend [`f64`]/[`f32`] to [`Ord`].
+pub trait Time: Num + Copy + NumCast + Ord + Eq {
+    /// Value representing time in the infinite future.
+    fn inf() -> Self;
 
-mod alg;
-
-use alg::{BranchAndBound, LongestProcessingTimeFirst, Solve};
-pub use alg::{Solution, Stats};
-
-// TODO: Is this enum really necessary now that there is `Solve` and structs impl. it?
-// TODO: Allow T to be int type / any type that can be converted to f64
-/// Solver for `P || C_max` task scheduling problem. The setting is
-///  * parallel identical resources
-///  * no task constraints
-///  * minimization of maximum task completion time
-///
-/// # Scheduler instances
-/// There are two scheduler variants:
-///  1. Approximate solver - `Lpt`
-///  2. Optimal solver - `BnB`
-///
-/// ## Approximate solver
-/// LPT stands for *Longest Processing Time First* and is an approximation algorithm that runs in
-/// `O(n*log(n))` time where `n` is the number of non-preemptive tasks to schedule.
-///
-/// Approximation factor is `r(LPT) = 1 + 1/k − 1/kR` where
-///  * `R` is no. resources (generally assumbed to be `R << n`)
-///  * `k` is no. tasks assigned to the resource which finishes last
-///
-/// ### Examples
-///
-/// Example where a sub-optimal solution is found.
-/// ```rust
-/// # extern crate makespan;
-/// use makespan::Scheduler;
-/// let pts = vec![5., 5., 4., 4., 3., 3., 3.];
-/// let (solution, stats) = Scheduler::Lpt.schedule(&pts, 3).unwrap();
-/// assert_eq!(solution.value, 11.); // opt = 9.
-/// assert_eq!(stats.approx_factor, 1.4444444444444444); // 11. < 9. * 1.4444444444444444 = 13.
-/// ```
-///
-/// ## Optimal solver
-/// Optimal solver impements Branch and Bound (BnB) Best-first search. This algorithm is complete
-/// and optimal, i.e. finds optimal schedule given enough time to run (controlled by `timeout`).
-///
-/// Because the scheduling problem is known to be NP-hard, it is believed that there is no
-/// polynomial algorithm. Then it is not surprising that this implementation runs in `O(R^n)` where
-/// `R` is the number of resources and `n` is again the number of tasks (`R << n`).
-///
-/// As mentioned above, this algorithm uses a Best-first search under the hood which means that
-/// nodes to expand in the BnB tree are picked based on a heuristic function `h(N)`. The heuristic
-/// is a simple *admissible* estimate of the value of partial solution `N` obtained by scheduling
-/// remaining tasks as if the problem was `P |pmtn| C_max` - i.e. relaxes the problem by allowing
-/// task preemption. Moreover, in current implementation we allow just one interrupt per task and
-/// these two task splits cannot run at the same time.
-///
-/// Additional optimization techniques include:
-///  * Initial best solution `B` is found by LPT and the search keeps only nodes with `f(N) < f(B)`
-///  * Pruning based on `h(N)` (i.e. `h(N) < f(B)` must hold to expand node `N`)
-///  * Pruning resource and task symmetries (e.g. with two identical tasks j1, j2 these assignments
-///    are symmetric: `[0 <- j1, 1 <- j2] =sym= [0 <- j2, 1 <- j1]`)
-///  * Tasks are pre-sorted by processing times (non-increasingly) and BnB then starts with longer
-///    tasks first when it selects next task to extend the partial solution with. This heuristic
-///    should in theory restrict the space more early in the search and thus help to prune
-///    sub-optimal solutions.
-///
-/// ### Examples
-///
-/// Example where an optimal solution is better than the one found by LPT.
-/// ```rust
-/// # extern crate makespan;
-/// use makespan::Scheduler;
-/// let pts = vec![5., 5., 4., 4., 3., 3., 3.];
-/// let (solution, stats) = Scheduler::BnB { timeout: None }.schedule(&pts, 3).unwrap();
-/// assert_eq!(solution.value, 9.);
-/// assert!(stats.proved_optimal);
-/// ```
-pub enum Scheduler {
-    /// Longest Processing Time First approximate solver
-    Lpt,
-    /// Branch & Bound optimal solver
-    BnB { timeout: Option<Duration> },
-}
-
-// TODO: type alias T or better add custom one to type check that processing time is positive
-impl Scheduler {
-    /// Run scheduling algorithm determined by this instance for given task `processing_times` and
-    /// number of available resources (`num_resources`).
-    ///
-    /// The solution will generally exist except for some edge cases when there are either no tasks
-    /// or resources.
-    pub fn schedule<T: Float + Sum>(
-        &self,
-        processing_times: &[T],
-        num_resources: usize,
-    ) -> Option<(Solution<T>, Stats<T>)> {
-        match self {
-            Self::Lpt => LongestProcessingTimeFirst.solve(processing_times, num_resources),
-            Self::BnB { timeout } => {
-                BranchAndBound { timeout: *timeout }.solve(processing_times, num_resources)
-            }
-        }
+    /// Tests if this value represents the maximal value (infinity).
+    fn is_inf(&self) -> bool {
+        self == &Self::inf()
     }
 }
+
+// TODO: this is only used in tests so unless we want to provide this blanket impl, the
+// `ordered_float` dependency could be moved to dev and this under a `#[cfg(test)]`
+/// Blanket implementation of [Time] for [OrderedFloat] for any [Float] type.
+impl<T: Float> Time for OrderedFloat<T> {
+    #[inline]
+    fn inf() -> Self {
+        T::infinity().into()
+    }
+}
+
+/// Blanket implementation of [Time] for [NotNan] for any [Float] type.
+impl<T: Float> Time for NotNan<T> {
+    #[inline]
+    fn inf() -> Self {
+        NotNan::new(T::infinity()).expect("infinity is not nan")
+    }
+}
+
+macro_rules! time_impl {
+    ($t:ty) => {
+        impl Time for $t {
+            #[inline]
+            fn inf() -> Self {
+                Self::MAX
+            }
+        }
+    };
+}
+
+time_impl!(u8);
+time_impl!(u16);
+time_impl!(u32);
+time_impl!(u64);
+time_impl!(u128);
