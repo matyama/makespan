@@ -76,26 +76,26 @@ pub struct Schedule<T> {
 ///  - the starting time `s[j]` for each task `j`
 ///  - the optimal makespan `c`
 ///
-/// ## Description
-/// Note that although tasks can be scheduled in an arbitrary order, this implementation actually
-/// processes them *in-order*.
-///
-/// Runs in `O(n)` worst-case time where `n` is the number of tasks to schedule.
-///
 /// ## Example
 /// ```
 /// # extern crate makespan;
 /// use makespan::sp;
 ///
-/// // Define a vector of processing times for each task
-/// let p: Vec<u8> = vec![1, 2];
+/// // Define processing times for each task
+/// let p: &[u8] = &[1, 2];
 ///
 /// // Find an optimal schedule
-/// let schedule = sp::unconstrained(&p)
+/// let schedule = sp::unconstrained(p)
 ///     .expect("feasible solution");
 ///
 /// assert_eq!(schedule, sp::Schedule { s: vec![0, 1], c: 3 });
 /// ```
+///
+/// ## Description
+/// Note that although tasks can be scheduled in an arbitrary order, this implementation actually
+/// processes them *in-order*.
+///
+/// Runs in `O(n)` worst-case time where `n` is the number of tasks to schedule.
 pub fn unconstrained<T: Time>(p: &[T]) -> Option<Schedule<T>> {
     if p.is_empty() {
         return None;
@@ -126,15 +126,6 @@ pub fn unconstrained<T: Time>(p: &[T]) -> Option<Schedule<T>> {
 ///  - the starting time `s[j]` for each task `j`
 ///  - the optimal makespan `c`
 ///
-/// ## Description
-/// The algorithm schedules tasks in the *topological order* of their precedence relation DAG.
-///
-/// Runs in `O(n)` worst-case time where `n` is the number of tasks to schedule.
-///
-/// ## Assumptions
-///  - [`NodeIndex::index`](NodeIndex::index) corresponds to the indexing of processing times, i.e.
-///  node with index `j` in the DAG has processing time `p[j]`
-///
 /// ## Example
 /// ```
 /// # extern crate makespan;
@@ -155,6 +146,15 @@ pub fn unconstrained<T: Time>(p: &[T]) -> Option<Schedule<T>> {
 ///
 /// assert_eq!(schedule, sp::Schedule { s: vec![0, 5, 2, 6], c: 7 });
 /// ```
+///
+/// ## Description
+/// The algorithm schedules tasks in the *topological order* of their precedence relation DAG.
+///
+/// Runs in `O(n)` worst-case time where `n` is the number of tasks to schedule.
+///
+/// ## Assumptions
+///  - [`NodeIndex::index`](NodeIndex::index) corresponds to the indexing of processing times, i.e.
+///  node with index `j` in the DAG has processing time `p[j]`
 pub fn schedule_prec<T: Time>(prec: &Prec, p: &[T]) -> Option<Schedule<T>> {
     if prec.node_count() == 0 || p.is_empty() || prec.node_count() != p.len() {
         return None;
@@ -184,11 +184,6 @@ pub fn schedule_prec<T: Time>(prec: &Prec, p: &[T]) -> Option<Schedule<T>> {
 ///  - the starting time `s[j]` for each task `j`
 ///  - the optimal makespan `c`
 ///
-/// ## Description
-/// The algorithm schedules tasks in a non-decreasing order of their processing times.
-///
-/// Runs in `O(n*log(n))` worst-case time where `n` is the number of tasks to schedule.
-///
 /// ## Example
 /// ```
 /// # extern crate makespan;
@@ -201,11 +196,16 @@ pub fn schedule_prec<T: Time>(prec: &Prec, p: &[T]) -> Option<Schedule<T>> {
 /// let p: &[u8] = &[2, 1];
 ///
 /// // Find an optimal schedule
-/// let schedule = sp::schedule_release(&r, &p)
+/// let schedule = sp::schedule_release(r, p)
 ///     .expect("feasible solution");
 ///
 /// assert_eq!(schedule, sp::Schedule { s: vec![1, 3], c: 4 });
 /// ```
+///
+/// ## Description
+/// The algorithm schedules tasks in a non-decreasing order of their processing times.
+///
+/// Runs in `O(n*log(n))` worst-case time where `n` is the number of tasks to schedule.
 pub fn schedule_release<T: Time>(r: &[T], p: &[T]) -> Option<Schedule<T>> {
     if r.is_empty() || p.is_empty() || r.len() != p.len() {
         return None;
@@ -240,14 +240,6 @@ pub fn schedule_release<T: Time>(r: &[T], p: &[T]) -> Option<Schedule<T>> {
 ///  - the starting time `s[j]` for each task `j`
 ///  - the optimal makespan `c`
 ///
-/// ## Description
-/// The algorithm attempts to schedule times in non-decreasing order of their deadlines `d[j]`.
-///
-/// Note that not all instances (i.e. combinations of inputs `d` and `p`) can yield feasible
-/// solution.
-///
-/// Runs in `O(n*log(n))` where `n` is the number of tasks to schedule.
-///
 /// ## Example: feasible solution
 /// ```
 /// # extern crate makespan;
@@ -260,7 +252,7 @@ pub fn schedule_release<T: Time>(r: &[T], p: &[T]) -> Option<Schedule<T>> {
 /// let p: &[u8] = &[1, 2, 3];
 ///
 /// // Find an optimal schedule
-/// let schedule = sp::edf(&d, &p)
+/// let schedule = sp::edf(d, p)
 ///     .expect("feasible solution");
 ///
 /// assert_eq!(schedule, sp::Schedule { s: vec![3, 4, 0], c: 6 });
@@ -278,9 +270,17 @@ pub fn schedule_release<T: Time>(r: &[T], p: &[T]) -> Option<Schedule<T>> {
 /// let p: &[u8] = &[1, 1, 3];
 ///
 /// // Find this instance infeasible
-/// let _ = sp::edf(&d, &p)
+/// let _ = sp::edf(d, p)
 ///     .expect("feasible solution");
 /// ```
+///
+/// ## Description
+/// The algorithm attempts to schedule times in non-decreasing order of their deadlines `d[j]`.
+///
+/// Note that not all instances (i.e. combinations of inputs `d` and `p`) can yield feasible
+/// solution.
+///
+/// Runs in `O(n*log(n))` where `n` is the number of tasks to schedule.
 pub fn edf<T: Time>(d: &[T], p: &[T]) -> Option<Schedule<T>> {
     if d.is_empty() || p.is_empty() || d.len() != p.len() {
         return None;
@@ -394,18 +394,40 @@ impl<T> From<TaskSchedule<T>> for Node<T> {
 ///  - the starting time `s[j]` for each task `j`
 ///  - the optimal makespan `c`
 ///
-/// ## Pruning techniques
+/// ## Example
+/// ```
+/// # extern crate makespan;
+/// use makespan::sp;
+///
+/// // Define release time, deadline and processing time for each task
+/// let r: &[u8] = &[4, 1, 1, 0];
+/// let d: &[u8] = &[8, 5, 6, 4];
+/// let p: &[u8] = &[2, 1, 2, 2];
+///
+/// // Find an optimal schedule
+/// let sp::Schedule { s: _, c } = sp::bratley(r, d, p)
+///     .expect("feasible solution");
+///
+/// // Note that there can be multiple schedules with the same (optimal) makespan.
+/// // For instance tasks scheduled in order `[3, 1, 2, 0]` is one of them.
+/// assert_eq!(c, 7);
+/// ```
+///
+/// ## Description
+/// Implementation details of the *Branch&Bound* search.
+///
+/// ### Pruning techniques
 ///  1. **eliminates nodes** exceeding the deadline and all its siblings:
 ///  1. **upper bound** pruning
 ///  1. **lower bound** pruning
 ///  1. **decomposes the problem** based on *idle waiting*
 ///
-/// ### Node elimination
+/// #### Node elimination
 /// If there's a node which exceeds any deadline, stop early and eliminate all siblings as well as
 /// it does not matter when the task is scheduled - it will always fail to finish before its
 /// deadline when scheduled later.
 ///
-/// ### Solution upper bound (UB)
+/// #### Solution upper bound (UB)
 /// Initially we can try to find a heuristic solution using the EDF algorithm and set it's value as
 /// the initial UB.
 ///
@@ -414,10 +436,16 @@ impl<T> From<TaskSchedule<T>> for Node<T> {
 ///
 /// Finally, any (partial) solution generated during the search whose `node.c >= UB` is pruned out.
 ///
-/// ### Solution lower bound (LB)
-/// TODO
+/// #### Solution lower bound (LB)
+/// Expanded nodes are also pruned based on their LB (if `LB >= UB`).
 ///
-/// ### Problem decomposition
+/// Node's LB is computed by relaxing on the release times of unscheduled (remaining) tasks in that
+/// exept for the minimal one (basically solving `1|-|C_max`):
+/// `LB = max(c, min r[remaining]) + sum p[remaining]` where
+///  - `c` is the makespan of newly generated node
+///  - `remaining` is the set of uncheduled tasks in that node
+///
+/// #### Problem decomposition
 /// *Idea*: When an employee waits for material, his/her work was optimal.
 ///
 /// Consider node `n` at level `k`. If the completion time of the last scheduled task `j` is less
@@ -426,16 +454,16 @@ impl<T> From<TaskSchedule<T>> for Node<T> {
 /// Node `n` becomes new root and there are `n - k` levels (`n - k` unscheduled tasks) to be
 /// scheduled.
 ///
-/// ## Optimality test
+/// ### Optimality test
 /// **Block with Release Time Property (BRTP)** is a set of `k` tasks that satisfy
 ///  - first task `T[1]` starts at it's release time
 ///  - all `k` tasks till the end of the schedule run without *idle waiting*
 ///  - `r[1] <= r[i]` for all `i = 2..k`
 ///
-/// ### Lemma: sufficient condition of optimality
+/// #### Lemma: sufficient condition of optimality
 /// If BRTP exists, the schedule is optimal (the search is finished).
 ///
-/// TODO: BRTP is not Necessary Condition of Optimality
+/// Note that BRTP is **not** a *necessary condition* of optimality tho.
 pub fn bratley<T: Time>(r: &[T], d: &[T], p: &[T]) -> Option<Schedule<T>> {
     if r.is_empty() || d.is_empty() || p.is_empty() {
         return None;
@@ -655,6 +683,25 @@ enum Successor<T> {
 ///  - the starting time `s[j]` for each task `j`
 ///  - the optimal makespan `c`
 ///
+/// ## Example
+/// ```
+/// # extern crate makespan;
+/// use makespan::sp;
+///
+/// // Define task ordering
+/// let chain = [1, 0];
+///
+/// // Define release & processing time for each task
+/// let r: &[u8] = &[0, 2];
+/// let p: &[u8] = &[3, 2];
+///
+/// // Find an optimal schedule
+/// let schedule = sp::chain_release(chain, r, p)
+///     .expect("feasible solution");
+///
+/// assert_eq!(schedule, sp::Schedule { s: vec![4, 2], c: 7 });
+/// ```
+///
 /// ## Description
 /// This algorithm simply follows the `chain` order of tasks to form the schedule.
 ///
@@ -822,5 +869,27 @@ mod tests {
     #[case(&[3, 5], &[4, 6], &[2, 1])]
     fn bratley_infeasible(#[case] r: &[u8], #[case] d: &[u8], #[case] p: &[u8]) {
         assert_eq!(bratley(r, d, p), None);
+    }
+
+    #[rstest]
+    #[case(&[0], &[2], &[3], Schedule { s: vec![2], c: 5 })]
+    #[case(&[1, 0], &[0, 2], &[3, 2], Schedule { s: vec![4, 2], c: 7 })]
+    fn chain_release_feasible(
+        #[case] chain: &[usize],
+        #[case] r: &[u8],
+        #[case] p: &[u8],
+        #[case] expected: Schedule<u8>,
+    ) {
+        let chain = chain.iter().cloned();
+        let actual = chain_release(chain, r, p).expect("feasible solution");
+        assert_eq!(expected, actual);
+    }
+
+    #[rstest]
+    #[case(&[1, 0], &[0], &[1, 2])]
+    #[case(&[1, 0], &[0, 0], &[1])]
+    fn chain_release_infeasible(#[case] chain: &[usize], #[case] r: &[u8], #[case] p: &[u8]) {
+        let chain = chain.iter().cloned();
+        assert_eq!(chain_release(chain, r, p), None);
     }
 }
