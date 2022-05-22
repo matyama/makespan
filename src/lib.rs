@@ -20,7 +20,14 @@
 //!
 //! ## Single-processor
 //! This class of scheduling problems considers single processing unit (resource).
-//! NOTE: not implemented yet
+//!
+//! ### Non-preemptive
+//! This sub-class considers non-preemptive tasks and is covered by module [`sp`](src/sp.rs). The
+//! list of problems and corresponding algorithms includes:
+//!  - `1||C_max`: optimal, linear
+//!  - `1|prec|C_max`: optimal, linear
+//!  - `1|r_j|C_max`: optimal, log-linear
+//!  - `1|d'_j|C_max`: EDF (optimal, log-linear)
 //!
 //! ## Multi-processor
 //! This class of scheduling problems considers multiple processing units (resources).
@@ -39,11 +46,13 @@
 //!  - [Complexity results](http://www2.informatik.uni-osnabrueck.de/knust/class/dateien/allResults.pdf)
 //!  - [The scheduling zoo](http://www-desir.lip6.fr/~durrc/query/)
 //!  - [CTU lecture slides](https://rtime.ciirc.cvut.cz/~hanzalek/KO/sched_e.pdf)
+use daggy::Dag;
 use num_traits::{Num, NumCast};
 use ordered_float::{Float, NotNan, OrderedFloat};
 
 pub mod mp;
 pub mod mp_pmtn;
+pub mod sp;
 
 /// Class of types representing a totally ordered numerical time.
 ///
@@ -98,3 +107,8 @@ time_impl!(u16);
 time_impl!(u32);
 time_impl!(u64);
 time_impl!(u128);
+
+// TODO: it could be quite easy to put prec under a feature flag, so that one does not have to
+// include `daggy` between dependencies
+/// *Directed Acyclic Graph (DAG)* representing a **task precedence** relation
+pub type Prec = Dag<(), ()>;
