@@ -1,5 +1,6 @@
 //! # Non-preemptive single-processor scheduling
-//! This module is dedicated to **single-processor** schduling problems **without task preeption**.
+//! This module is dedicated to **single-processor** scheduling problems **without task
+//! preemption**.
 //!
 //! ## Additional assumptions
 //!  - There is only one processor unit(resource)
@@ -15,10 +16,10 @@
 //! The `1|prec|C_max` problem is described for *single resource* with *task precedence constraints*
 //! and can be solved in linear time by [`sp::schedule_prec`](crate::sp::schedule_prec).
 //!
-//! The task precedence relation is given as a DAG [`Prec`](Prec).
+//! The task precedence relation is given as a DAG [`Prec`].
 //!
 //! ### `1|r_j|C_max`
-//! The `1|r_j|C_max` problem is described for *single resource* with *task realease time
+//! The `1|r_j|C_max` problem is described for *single resource* with *task release time
 //! constraints* and can be solved in log-linear time by
 //! [`sp::schedule_release`](crate::sp::schedule_release).
 //!
@@ -34,7 +35,7 @@
 //!
 //! ### `1|r_j,d'_j|C_max`
 //! The `1|r_j,d'_j|C_max` problem is described for *single resource* with both *task deadline* and
-//! *task relase time* constraints and is known to be **NP-hard**.
+//! *task release time* constraints and is known to be **NP-hard**.
 //!
 //! There are two algorithms solving this problem:
 //!  1. A heuristic algorithm called **Earliest Deadline First (EDF)** can be found in
@@ -42,8 +43,8 @@
 //!  1. An optimal **Bratley's Branch&Bound (BnB)** algorithm [`sp::bratley`](crate::sp::bratley)
 //!
 //! ### `1|chains,r_j|C_max`
-//! The `1|chains,r_j|C_max` problem is described for *single resource* with and *task relase time*
-//! and *chain ordering* constraints.
+//! The `1|chains,r_j|C_max` problem is described for *single resource* with and *task release
+//! time* and *chain ordering* constraints.
 //!
 //! [`sp::chain_release`](crate::sp::chain_release) implements a special case of this problem in
 //! which `chain` specifies a total ordering of tasks in which they must be scheduled.
@@ -62,7 +63,7 @@ use itertools::Itertools;
 pub struct Schedule<T> {
     /// the starting time `s[j]` for each task `j`
     pub s: Vec<T>,
-    /// maximum completion time (a.k.a the **makespan**)
+    /// maximum completion time (a.k.a., the **makespan**)
     pub c: T,
 }
 
@@ -213,7 +214,7 @@ pub fn schedule_release<T: Time>(r: &[T], p: &[T]) -> Option<Schedule<T>> {
 
     let n = r.len();
 
-    // sort tasks in non-decreasing order of their relaese time
+    // sort tasks in non-decreasing order of their release time
     let tasks = r.iter().enumerate().sorted_by_key(|(_, &r)| r);
 
     let mut c = T::zero();
@@ -277,7 +278,7 @@ pub fn schedule_release<T: Time>(r: &[T], p: &[T]) -> Option<Schedule<T>> {
 /// ## Description
 /// The algorithm attempts to schedule times in non-decreasing order of their deadlines `d[j]`.
 ///
-/// Note that not all instances (i.e. combinations of inputs `d` and `p`) can yield feasible
+/// Note that not all instances (i.e., combinations of inputs `d` and `p`) can yield feasible
 /// solution.
 ///
 /// Runs in `O(n*log(n))` where `n` is the number of tasks to schedule.
@@ -321,7 +322,7 @@ pub fn edf<T: Time>(d: &[T], p: &[T]) -> Option<Schedule<T>> {
 ///  - the optimal makespan `c`
 ///
 /// ## Description
-/// Adapts EDF to which it adds relaease time constrants and runs in `O(n*log(n))` worst-case
+/// Adapts EDF to which it adds release time constraints and runs in `O(n*log(n))` worst-case
 /// time where `n` is the number of tasks to schedule.
 ///
 /// Note that similarly to EDF, not all instances are feasible due to deadlines.
@@ -440,10 +441,10 @@ impl<T> From<TaskSchedule<T>> for Node<T> {
 /// Expanded nodes are also pruned based on their LB (if `LB >= UB`).
 ///
 /// Node's LB is computed by relaxing on the release times of unscheduled (remaining) tasks in that
-/// exept for the minimal one (basically solving `1|-|C_max`):
+/// except for the minimal one (basically solving `1|-|C_max`):
 /// `LB = max(c, min r[remaining]) + sum p[remaining]` where
 ///  - `c` is the makespan of newly generated node
-///  - `remaining` is the set of uncheduled tasks in that node
+///  - `remaining` is the set of unscheduled tasks in that node
 ///
 /// #### Problem decomposition
 /// *Idea*: When an employee waits for material, his/her work was optimal.
@@ -488,7 +489,7 @@ pub fn bratley<T: Time>(r: &[T], d: &[T], p: &[T]) -> Option<Schedule<T>> {
 
     while let Some(node) = queue.pop_front() {
         if node.t.len() == n {
-            // candiate solution found, update best
+            // candidate solution found, update best
             if node.c < best.c {
                 best = node;
             }
@@ -516,9 +517,9 @@ pub fn bratley<T: Time>(r: &[T], d: &[T], p: &[T]) -> Option<Schedule<T>> {
                 //  - successor's lower bound exceeds current upper bound (`LB >= UB`)
                 Successor::Suboptimal => {}
                 // problem decomposition:
-                //  1. create a sub-problem from remaining tasks
-                //  2. solve the sub-problem
-                //  3. return concatenated current partial solution and sub-problem solution
+                //  1. Create a sub-problem from remaining tasks
+                //  2. Solve the sub-problem
+                //  3. Return concatenated current partial solution and sub-problem solution
                 Successor::PartiallyOptimal(mut t) => {
                     let n_sub = remaining.len() - 1;
                     let mut t_sub = vec![0; n_sub];
@@ -544,7 +545,7 @@ pub fn bratley<T: Time>(r: &[T], d: &[T], p: &[T]) -> Option<Schedule<T>> {
 
                     return chain_release(t, r, p);
                 }
-                // node elimination: exists an uncheduled task j such that
+                // node elimination: exists an unscheduled task j such that
                 //                   `max(node.c, r[j]) + p[j] > d[j]`
                 Successor::Infeasible => {
                     successors = vec![];
@@ -610,7 +611,7 @@ impl<T: Time> Node<T> {
             return Successor::Suboptimal;
         }
 
-        // j was the last task to schdule
+        // j was the last task to schedule
         let no_remaining = remaining.len() == 1;
         debug_assert!(!no_remaining || remaining[0] == j);
 
@@ -635,10 +636,10 @@ impl<T: Time> Node<T> {
             };
         }
 
-        // compute `min(r[uncheduled])` and sum(p[uncheduled])
+        // compute `min(r[unscheduled])` and sum(p[unscheduled])
         let (r_min, p_sum) = remaining
             .iter()
-            // j is no longer uncheduled so skip it
+            // j is no longer unscheduled so skip it
             .filter(|&&i| i != j)
             .fold((T::inf(), T::zero()), |(r_min, p_sum), &j| {
                 (min(r_min, r[j]), p_sum + p[j])
@@ -673,8 +674,8 @@ enum Successor<T> {
 /// ordering of tasks.
 ///
 /// ## Input
-///  - `chain` is an ordered sequence of `n` tasks (i.e. values range in `0..n`) in which the tasks
-///    must be scheduled
+///  - `chain` is an ordered sequence of `n` tasks (i.e., values range in `0..n`) in which the
+///    tasks must be scheduled
 ///  - `r[j]` is the release time of task `j`
 ///  - `p[j]` is the processing time of task `j`
 ///
@@ -706,7 +707,7 @@ enum Successor<T> {
 /// This algorithm simply follows the `chain` order of tasks to form the schedule.
 ///
 /// Note that this algorithm solves a special case of the `chains` constraint in which there's a
-/// total ordering of tasks. In general the constrait requires only a partial order - i.e. it
+/// total ordering of tasks. In general the constraint requires only a partial order - i.e., it
 /// allows multiple independent sub-chains.
 ///
 /// Runs in `O(n)` worst-case time where `n` is the number of tasks to schedule.
@@ -782,7 +783,7 @@ mod tests {
 
         let Schedule { mut s, c } = schedule_prec(&prec, p).expect("feasible solution");
 
-        // orderdering is in this case irrelevant since there are no precedences and processing
+        // ordering is in this case irrelevant since there are no precedences and processing
         // times are uniform
         s.sort();
         assert_eq!(s, vec![0, 1, 2]);

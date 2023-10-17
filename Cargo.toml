@@ -5,7 +5,7 @@ authors = ["Martin Matyášek <martin.matyasek@gmail.com>"]
 edition = "2021"
 description = "Minimum makespan scheduler"
 repository = "https://github.com/matyama/makespan"
-license = "MIT OR Apache-2.0"
+license = "MIT"
 keywords = ["scheduling", "makespan", "operations research"]
 categories = ["algorithms", "science"]
 
@@ -20,12 +20,16 @@ path = "src/lib.rs"
 [dependencies]
 daggy = "0.8"
 fixedbitset = "0.4"
-itertools = "0.10"
+itertools = "0.11"
 num-traits = "0.2"
-ordered-float = "3.0"
-rand = "0.8"
+ordered-float = "4.1"
 
-# TODO: criterion
 [dev-dependencies]
-rstest = "0.12"
+criterion = "0.5"
+rand = "0.8"
+rand_pcg = "0.3"
+rstest = "0.18"
 
+[[bench]]
+name = "mp"
+harness = false

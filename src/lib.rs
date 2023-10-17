@@ -22,35 +22,39 @@
 //! This class of scheduling problems considers single processing unit (resource).
 //!
 //! ### Non-preemptive
-//! This sub-class considers non-preemptive tasks and is covered by module [`sp`](crate::sp). The
-//! list of problems and corresponding algorithms includes:
+//! This sub-class considers non-preemptive tasks and is covered by module [`sp`]. The list of
+//! problems and corresponding algorithms includes:
 //!  - `1||C_max`: optimal, linear
 //!  - `1|prec|C_max`: optimal, linear
 //!  - `1|r_j|C_max`: optimal, log-linear
 //!  - `1|d'_j|C_max`: EDF (optimal, log-linear)
 //!  - `1|r_j,d'_j|C_max`: heuristic (log-linear), Bratley's BnB (optimal)
-//!  - `1|chains,r_j|C_max`: special case with `chains` totally ordered (otpimal, linear)
+//!  - `1|chains,r_j|C_max`: special case with `chains` totally ordered (optimal, linear)
 //!
 //! ## Multi-processor
 //! This class of scheduling problems considers multiple processing units (resources).
 //!
 //! ### Non-preemptive
-//! This sub-class considers non-preemptive tasks and is covered by module [`mp`](crate::mp). The
-//! list of problems and corresponding algorithms includes:
+//! This sub-class considers non-preemptive tasks and is covered by module [`mp`]. The list of
+//! problems and corresponding algorithms includes:
 //!  - `P||C_max`: LPT (approx), BnB (optimal)
 //!
 //! ### Preemptive
-//! This sub-class considers preemptive tasks and is covered by module [`mp_pmtn`](crate::mp_pmtn).
-//! The list of problems and corresponding algorithms includes:
+//! This sub-class considers preemptive tasks and is covered by module [`mp_pmtn`]. The list of
+//! problems and corresponding algorithms includes:
 //!  - `P|pmtn|C_max`: McNaughton (optimal)
 //!
 //! # Resources
-//!  - [Complexity results](http://www2.informatik.uni-osnabrueck.de/knust/class/dateien/allResults.pdf)
-//!  - [The scheduling zoo](http://www-desir.lip6.fr/~durrc/query/)
-//!  - [CTU lecture slides](https://rtime.ciirc.cvut.cz/~hanzalek/KO/sched_e.pdf)
+//!  - [Complexity results][complex]
+//!  - [The scheduling zoo][schedule]
+//!  - [CTU lecture slides][ctu]
+//!
+//! [complex]: http://www2.informatik.uni-osnabrueck.de/knust/class/dateien/allResults.pdf
+//! [schedule]: http://www-desir.lip6.fr/~durrc/query
+//! [ctu]: https://rtime.ciirc.cvut.cz/~hanzalek/KO/sched_e.pdf
 use daggy::Dag;
 use num_traits::{Num, NumCast};
-use ordered_float::{Float, NotNan, OrderedFloat};
+use ordered_float::{FloatCore, NotNan, OrderedFloat};
 
 pub mod mp;
 pub mod mp_pmtn;
@@ -77,16 +81,16 @@ pub trait Time: Num + Copy + NumCast + Ord + Eq {
 
 // TODO: this is only used in tests so unless we want to provide this blanket impl, the
 // `ordered_float` dependency could be moved to dev and this under a `#[cfg(test)]`
-/// Blanket implementation of [Time] for [OrderedFloat] for any [Float] type.
-impl<T: Float> Time for OrderedFloat<T> {
+/// Blanket implementation of [Time] for [OrderedFloat] for any [FloatCore] type.
+impl<T: FloatCore> Time for OrderedFloat<T> {
     #[inline]
     fn inf() -> Self {
         T::infinity().into()
     }
 }
 
-/// Blanket implementation of [Time] for [NotNan] for any [Float] type.
-impl<T: Float> Time for NotNan<T> {
+/// Blanket implementation of [Time] for [NotNan] for any [FloatCore] type.
+impl<T: FloatCore> Time for NotNan<T> {
     #[inline]
     fn inf() -> Self {
         NotNan::new(T::infinity()).expect("infinity is not nan")

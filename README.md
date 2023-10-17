@@ -1,4 +1,5 @@
 ![makespan](https://github.com/matyama/makespan/workflows/makespan/badge.svg)
+[![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
 ![Maintenance](https://img.shields.io/badge/maintenance-experimental-blue.svg)
 
 # makespan
@@ -27,34 +28,38 @@ General constraints:
 This class of scheduling problems considers single processing unit (resource).
 
 #### Non-preemptive
-This sub-class considers non-preemptive tasks and is covered by module [`sp`](crate::sp). The
-list of problems and corresponding algorithms includes:
+This sub-class considers non-preemptive tasks and is covered by module [`sp`]. The list of
+problems and corresponding algorithms includes:
  - `1||C_max`: optimal, linear
  - `1|prec|C_max`: optimal, linear
  - `1|r_j|C_max`: optimal, log-linear
  - `1|d'_j|C_max`: EDF (optimal, log-linear)
  - `1|r_j,d'_j|C_max`: heuristic (log-linear), Bratley's BnB (optimal)
- - `1|chains,r_j|C_max`: special case with `chains` totally ordered (otpimal, linear)
+ - `1|chains,r_j|C_max`: special case with `chains` totally ordered (optimal, linear)
 
 ### Multi-processor
 This class of scheduling problems considers multiple processing units (resources).
 
 #### Non-preemptive
-This sub-class considers non-preemptive tasks and is covered by module [`mp`](crate::mp). The
-list of problems and corresponding algorithms includes:
+This sub-class considers non-preemptive tasks and is covered by module [`mp`]. The list of
+problems and corresponding algorithms includes:
  - `P||C_max`: LPT (approx), BnB (optimal)
 
 #### Preemptive
-This sub-class considers preemptive tasks and is covered by module [`mp_pmtn`](crate::mp_pmtn).
-The list of problems and corresponding algorithms includes:
+This sub-class considers preemptive tasks and is covered by module [`mp_pmtn`]. The list of
+problems and corresponding algorithms includes:
  - `P|pmtn|C_max`: McNaughton (optimal)
 
 ## Resources
- - [Complexity results](http://www2.informatik.uni-osnabrueck.de/knust/class/dateien/allResults.pdf)
- - [The scheduling zoo](http://www-desir.lip6.fr/~durrc/query/)
- - [CTU lecture slides](https://rtime.ciirc.cvut.cz/~hanzalek/KO/sched_e.pdf)
+ - [Complexity results][complex]
+ - [The scheduling zoo][schedule]
+ - [CTU lecture slides][ctu]
+
+[complex]: http://www2.informatik.uni-osnabrueck.de/knust/class/dateien/allResults.pdf
+[schedule]: http://www-desir.lip6.fr/~durrc/query
+[ctu]: https://rtime.ciirc.cvut.cz/~hanzalek/KO/sched_e.pdf
 
 ## License and version
 **Current version**: 0.3.0
 
-**License**: MIT OR Apache-2.0
+**License**: MIT
