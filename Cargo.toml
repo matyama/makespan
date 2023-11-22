@@ -20,7 +20,7 @@ path = "src/lib.rs"
 [dependencies]
 daggy = "0.8"
 fixedbitset = "0.4"
-itertools = "0.11"
+itertools = "0.12"
 num-traits = "0.2"
 ordered-float = "4.1"
 
