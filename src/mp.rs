@@ -1,5 +1,5 @@
 //! # Non-preemptive multi-processor scheduling
-//! This module is dedicated to **multi-processor** schduling problems **without task preeption**.
+//! This module is dedicated to **multi-processor** scheduling problems **without task preemption**.
 //!
 //! ## Additional assumptions
 //!  - There are multiple processing units (resources)
@@ -30,14 +30,14 @@ use itertools::{Itertools, MinMaxResult};
 use ordered_float::OrderedFloat;
 
 // TODO: Eq is only relevant in tests, relax T bound and implement it just there
-/// Parallel resouce allocation and schedule with corresponding makespan value
+/// Parallel resource allocation and schedule with corresponding makespan value
 #[derive(Debug, PartialEq, Eq)]
 pub struct Schedule<T: Eq> {
     /// the starting time `s[j]` for each task `j`
     pub s: Vec<T>,
     /// the resource `z[j]` (in the range `0..r`) that will run task `j`
     pub z: Vec<usize>,
-    /// maximum completion time across all resources (a.k.a the **makespan**)
+    /// maximum completion time across all resources (a.k.a., the **makespan**)
     pub c: T,
 }
 
@@ -112,24 +112,24 @@ pub fn lpt<T: Time>(p: &[T], r: usize) -> Option<Schedule<T>> {
 /// ## Branch and Bound implementation
 ///
 /// ### Upper Bound (UB) pruning
-/// Initial feasible solution is found by an [`lpt`](crate::mp::lpt) call as set as an UB and then
-/// each time a complete solution is found, the UB is updated (if better schedule has been fuound).
+/// Initial feasible solution is found by an [`lpt`] call as set as an UB and then each time a
+/// complete solution is found, the UB is updated (if better schedule has been found).
 ///
 /// Any schedule whose makespan exceeeds current UB (`C_max >= UB`) during the B&B search is pruned.
 ///
 /// ### Lower Bound (LB) pruning
 /// Partial solutions are also lower bounded using a modification of the McNaughton's algorithm for
-/// a relaxed problem `P|pmtn|C_max` (i.e. assuming task preeption).
+/// a relaxed problem `P|pmtn|C_max` (i.e., assuming task preemption).
 ///
 /// First, lets denote `C_min(R)` to be the minimum resource completion time assuming a partial
 /// solution on `R` resources. Further, let `V` denote the set tasks that remain to be scheduled and
 /// `V'` to additionally to `V` also include those already scheduled tasks that continue to run
 /// after `C_min(R)` (i.e. start before but finish after). Finally, let `C_pmtn(V')` denote the
-/// optimal makespan of an insntace of `P|pmtn|C_max` on tasks in `V'` and the processing time of
+/// optimal makespan of an instance of `P|pmtn|C_max` on tasks in `V'` and the processing time of
 /// tasks in `V'\V` to be restricted to the portion that exceeds `C_min(R)`.
 ///
 /// In summary:
-///  - `C_min(R) = min_i C_i` where `C_i` is the current maxumum completion time of tasks scheduled
+///  - `C_min(R) = min_i C_i` where `C_i` is the current maximum completion time of tasks scheduled
 ///    to resource `i`
 ///  - `V'` is a set of tasks that either remain to be scheduled or have not finished until (and
 ///    including) `C_min(R)`
@@ -139,13 +139,13 @@ pub fn lpt<T: Time>(p: &[T], r: usize) -> Option<Schedule<T>> {
 ///
 /// Then the LB on a (partial) solution can be computed as `LB = C_min(R) + C_pmtn(V')`. The
 /// intuition is that
-///  - `C_min(R)` represents the *sequential* characted of already scheduled tasks that is similar
+///  - `C_min(R)` represents the *sequential* character of already scheduled tasks that is similar
 ///    to one part of McNaughton's computation of the optimum. Notice that for a complete schedule
-///    (no remainig tasks) `C_min(R) <= C_max` of the original problem.
+///    (no remaining tasks) `C_min(R) <= C_max` of the original problem.
 ///  - `C_pmtn(V')` is a solution of a relaxed sub-problem in which we allow task preemption - as
 ///    if we tried to solve `P|pmtn|C_max` with an empty schedule
 ///  - Tasks that start before but finish after `C_min(R)` are considered sequential in the first
-///    part and potentially preemptive in the other part. Hence only the latter is inluded in the
+///    part and potentially preemptive in the other part. Hence only the latter is included in the
 ///    relaxation
 ///  - Because `C_min(R) <= C_max` and `C_pmtn(V')` is a solution to a problem relaxation, it
 ///    follows that `LB <= C_max`
@@ -155,7 +155,7 @@ pub fn lpt<T: Time>(p: &[T], r: usize) -> Option<Schedule<T>> {
 ///
 /// ### Pruning symmetries
 /// Since `P||C_max` assumes **identical** resources, their permutation has no effect on the
-/// optimal schedule. Once the search reaches certian resource completion times (`C_i`
+/// optimal schedule. Once the search reaches certain resource completion times (`C_i`
 /// for each resource `i`), the same completion times (and thus makespan `C_max = max_i C_i`) will
 /// be yielded in a different portion of the search tree modulo a permutation of the resources
 /// (indices `i`).
@@ -211,10 +211,10 @@ pub fn bnb<T: Time + Hash + Into<f64>>(p: &[T], r: usize) -> Option<Schedule<T>>
         }
 
         // TODO: better heuristic
-        // heuristic: select first uncheduled task
+        // heuristic: select first unscheduled task
         let j = (0..n)
             .find(|&j| node.s[j].is_inf())
-            .expect("partial solution should have unscheudled tasks");
+            .expect("partial solution should have unscheduled tasks");
 
         (0..r)
             .filter_map(|i| node.expand(i, j, p, best.c))
@@ -237,7 +237,7 @@ struct Node<T> {
     s: Vec<T>,
     /// `z[j] = i` iff task `j` is allocated to resource `i`
     z: Vec<usize>,
-    /// `c[i]` is the maximum completion time at resouce `i`
+    /// `c[i]` is the maximum completion time at resource `i`
     c: Vec<T>,
     /// current makespan `c_max = max_i c[i]`
     c_max: T,
